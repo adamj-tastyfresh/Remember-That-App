@@ -1,32 +1,36 @@
-# React + TypeScript + Vite
+# Remember That frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React and TypeScript Progressive Web App for the Tasty Fresh IT task diary and inventory location tracker.
 
-Currently, two official plugins are available:
+## Current milestone
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The stock Vite demo has been replaced with:
 
-## React Compiler
+- A responsive desktop sidebar and mobile bottom navigation shell
+- First-run selection for Doug, Daniel, Mary, Adam, or Jabbar
+- Stable internal IDs kept separate from display names
+- Device-persistent user selection
+- An always-visible user switcher
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The user selection identifies record ownership only. It is not secure authentication.
 
-## Expanding the Oxlint configuration
+The selected internal user ID is stored as the small device preference
+`remember-that.current-user-id` in local storage. Application records will use
+IndexedDB when offline data is introduced in a later milestone.
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+## Development
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```powershell
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Checks
+
+```powershell
+npm run lint
+npm run build
+```
+
+The production build includes the configured PWA service worker and web app
+manifest.
