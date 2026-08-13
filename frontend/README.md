@@ -13,7 +13,9 @@ The frontend now includes:
 - Create and list operations for active tasks
 - Creator-only task editing and archiving
 - A retained Archives view
-- Visible `Waiting to Sync` state for local changes
+- A persistent IndexedDB synchronization queue with visible sync states
+- Automatic sync on app open, reconnect, foreground return, and local changes
+- Manual retry, last-successful-sync time, and retained conflict copies
 - A warning before switching users when the current user has pending changes
 
 The user selection identifies record ownership only. It is not secure authentication.
@@ -27,8 +29,9 @@ Task records are stored in the `remember-that` IndexedDB database. Each record
 has a client-generated UUID, immutable creator details, device creation time,
 archive metadata, local/server version fields, and synchronisation state.
 
-Server synchronisation is not implemented yet. Local task changes remain marked
-as `Waiting to Sync` until the internal API and sync queue are added.
+Task changes remain queued until the internal API confirms them. Failed requests
+are retained for retry, and conflicts preserve both the local and server versions.
+See `../Synchronisation.md` for the full flow and setup.
 
 ## Development
 

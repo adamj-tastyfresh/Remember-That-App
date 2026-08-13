@@ -52,7 +52,7 @@
         <header class="topbar">
           <div class="mobile-brand"><div class="brand-mark" aria-hidden="true">R</div><strong>Remember That</strong></div>
           <div class="topbar-actions">
-            <span class="local-status"><span aria-hidden="true"></span><span id="pending-label">1 waiting to sync</span></span>
+            <div class="sync-controls"><span class="local-status"><span aria-hidden="true"></span><span id="pending-label">1 waiting to sync</span></span><span class="last-sync" id="last-sync">Not yet synced</span><button class="sync-button" id="sync-now" type="button">Sync now</button></div>
             <label class="user-switcher"><span>Using as</span><select id="current-user"><option>Doug</option><option>Daniel</option><option>Mary</option><option selected>Adam</option><option>Jabbar</option></select></label>
           </div>
         </header>
@@ -64,7 +64,7 @@
             <section class="welcome-panel">
               <p class="eyebrow">Workspace</p>
               <h1>Hello, <span class="welcome-name">Adam</span></h1>
-              <p>Your task diary now works offline. New and changed tasks stay on this device until server synchronisation is added.</p>
+              <p>Your task diary works offline and safely queues changes for the internal server.</p>
               <button class="welcome-action" data-view="tasks" type="button">Add a task</button>
             </section>
             <section aria-labelledby="overview-heading">
@@ -141,6 +141,7 @@
       const taskDescription = document.querySelector('#task-description')
       const switchDialog = document.querySelector('#switch-dialog')
       const togglePreview = document.querySelector('#toggle-preview')
+      const syncNow = document.querySelector('#sync-now')
 
       function escapeHtml(value) {
         return value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character])
@@ -265,6 +266,18 @@
           shell.hidden = true
           togglePreview.textContent = 'Show app shell'
         }
+      })
+
+      syncNow.addEventListener('click', () => {
+        syncNow.disabled = true
+        syncNow.textContent = 'Syncing…'
+        document.querySelector('#pending-label').textContent = 'Synchronising…'
+        window.setTimeout(() => {
+          document.querySelector('#pending-label').textContent = '0 waiting to sync'
+          document.querySelector('#last-sync').textContent = 'Last synced just now'
+          syncNow.textContent = 'Sync now'
+          syncNow.disabled = false
+        }, 700)
       })
 
       updatePage()

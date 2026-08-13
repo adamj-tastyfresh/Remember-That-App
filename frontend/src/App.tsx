@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { TaskForm } from './components/TaskForm.tsx'
 import { TaskList } from './components/TaskList.tsx'
+import { SyncStatusBar, SYNC_REQUEST_EVENT } from './components/SyncStatusBar.tsx'
 import { listTasks, saveTask } from './data/taskRepository.ts'
 import { findUser, USERS, type User } from './data/users.ts'
 import {
@@ -90,6 +91,7 @@ function App() {
         task,
         ...existingTasks.filter((existingTask) => existingTask.id !== task.id),
       ].sort((first, second) => second.deviceCreatedAt.localeCompare(first.deviceCreatedAt)))
+      if (navigator.onLine) window.dispatchEvent(new Event(SYNC_REQUEST_EVENT))
       return true
     } catch (error) {
       setStorageError(error instanceof Error ? error.message : 'Could not save this task on the device.')
@@ -194,7 +196,7 @@ function App() {
         <header className="topbar">
           <div className="mobile-brand"><div className="brand-mark" aria-hidden="true">R</div><strong>Remember That</strong></div>
           <div className="topbar-actions">
-            <span className="local-status"><span aria-hidden="true"></span>{myPendingTasks.length} waiting to sync</span>
+            <SyncStatusBar pendingCount={myPendingTasks.length} onTasksChanged={setTasks} />
             <label className="user-switcher">
               <span>Using as</span>
               <select aria-label="Current user" value={currentUser.id} onChange={(event) => selectUser(event.target.value)}>

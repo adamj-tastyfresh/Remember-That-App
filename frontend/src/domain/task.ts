@@ -7,6 +7,21 @@ export type SyncStatus =
   | 'Sync Failed'
   | 'Conflict Detected'
 
+export type ServerTaskSnapshot = {
+  id: string
+  title: string
+  description: string
+  creatorId: string
+  creatorName: string
+  deviceCreatedAt: string
+  serverCreatedAt: string
+  lastModifiedAt: string
+  archived: boolean
+  archivedAt: string | null
+  archivedBy: string | null
+  serverVersion: number
+}
+
 export type TaskRecord = {
   id: string
   title: string
@@ -23,6 +38,8 @@ export type TaskRecord = {
   localVersion: number
   serverVersion: number | null
   lastSyncedAt: string | null
+  syncError: string | null
+  conflictServerTask: ServerTaskSnapshot | null
 }
 
 export type TaskInput = {
@@ -33,10 +50,9 @@ export type TaskInput = {
 function validateTaskInput(input: TaskInput): TaskInput {
   const title = input.title.trim()
   const description = input.description.trim()
-
   if (!title) throw new Error('Enter a task title.')
+  if (title.length > 250) throw new Error('Task titles must be 250 characters or fewer.')
   if (!description) throw new Error('Enter a task description.')
-
   return { title, description }
 }
 
@@ -47,7 +63,6 @@ export function createTask(
   now = new Date().toISOString(),
 ): TaskRecord {
   const validated = validateTaskInput(input)
-
   return {
     id,
     ...validated,
@@ -63,6 +78,8 @@ export function createTask(
     localVersion: 1,
     serverVersion: null,
     lastSyncedAt: null,
+    syncError: null,
+    conflictServerTask: null,
   }
 }
 
@@ -72,17 +89,14 @@ export function updateTask(
   user: User,
   now = new Date().toISOString(),
 ): TaskRecord {
-  if (task.creatorId !== user.id) {
-    throw new Error('Only the person who created this task can edit it.')
-  }
-
+  if (task.creatorId !== user.id) throw new Error('Only the person who created this task can edit it.')
   const validated = validateTaskInput(input)
-
   return {
     ...task,
     ...validated,
     lastModifiedAt: now,
     syncStatus: 'Waiting to Sync',
+    syncError: null,
     localVersion: task.localVersion + 1,
   }
 }
@@ -92,10 +106,7 @@ export function archiveTask(
   user: User,
   now = new Date().toISOString(),
 ): TaskRecord {
-  if (task.creatorId !== user.id) {
-    throw new Error('Only the person who created this task can archive it.')
-  }
-
+  if (task.creatorId !== user.id) throw new Error('Only the person who created this task can archive it.')
   return {
     ...task,
     archived: true,
@@ -103,6 +114,7 @@ export function archiveTask(
     archivedBy: user.id,
     lastModifiedAt: now,
     syncStatus: 'Waiting to Sync',
+    syncError: null,
     localVersion: task.localVersion + 1,
   }
 }

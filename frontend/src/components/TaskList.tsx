@@ -16,6 +16,10 @@ function formatDate(date: string): string {
   }).format(new Date(date))
 }
 
+function syncClass(task: TaskRecord): string {
+  return 'sync-badge ' + task.syncStatus.toLowerCase().replaceAll(' ', '-')
+}
+
 export function TaskList({ tasks, currentUser, archived = false, onEdit, onArchive }: TaskListProps) {
   if (tasks.length === 0) {
     return (
@@ -35,13 +39,20 @@ export function TaskList({ tasks, currentUser, archived = false, onEdit, onArchi
         return (
           <article className="task-card" key={task.id}>
             <div className="task-card-topline">
-              <span className={`sync-badge ${task.syncStatus === 'Waiting to Sync' ? 'waiting' : ''}`}>
+              <span className={syncClass(task)}>
                 <span aria-hidden="true"></span>{task.syncStatus}
               </span>
               <span className="task-date">{formatDate(task.serverCreatedAt ?? task.deviceCreatedAt)}</span>
             </div>
             <h3>{task.title}</h3>
             <p className="task-description">{task.description}</p>
+            {task.syncError && <p className="sync-error">{task.syncError}</p>}
+            {task.conflictServerTask && (
+              <div className="conflict-comparison">
+                <div><strong>Local version</strong><span>{task.title}</span><p>{task.description}</p></div>
+                <div><strong>Server version</strong><span>{task.conflictServerTask.title}</span><p>{task.conflictServerTask.description}</p></div>
+              </div>
+            )}
             <footer>
               <span>Created by <strong>{task.creatorName}</strong></span>
               {!archived && isCreator && (

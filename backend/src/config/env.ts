@@ -10,6 +10,7 @@ function requireEnv(name: string, fallback?: string): string {
 
 export const env = {
   port: Number(process.env.PORT ?? 4000),
+  appOrigin: requireEnv('APP_ORIGIN', 'http://localhost:5173'),
   db: {
     server: requireEnv('DB_SERVER', 'localhost'),
     database: requireEnv('DB_NAME', 'RememberThat'),
