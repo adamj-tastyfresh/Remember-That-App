@@ -18,14 +18,10 @@ export type SyncSummary = {
 }
 
 export function getLastSuccessfulSync(): string | null {
-  try {
-    return window.localStorage.getItem(LAST_SYNC_KEY)
-  } catch {
-    return null
-  }
+  try { return window.localStorage.getItem(LAST_SYNC_KEY) } catch { return null }
 }
 
-function rememberSuccessfulSync(value: string): void {
+export function rememberSuccessfulSync(value: string): void {
   try {
     window.localStorage.setItem(LAST_SYNC_KEY, value)
   } catch {
@@ -43,11 +39,9 @@ export async function synchroniseTasks(): Promise<SyncSummary> {
       summary.conflicts += 1
       continue
     }
-
     await setTaskSyncStatus(item.taskId, 'Synchronising')
     try {
-      const serverTask = await pushTask(item)
-      await completeTaskSync(item, serverTask)
+      await completeTaskSync(item, await pushTask(item))
       summary.synced += 1
       summary.serverReached = true
     } catch (error) {
@@ -56,8 +50,7 @@ export async function synchroniseTasks(): Promise<SyncSummary> {
         summary.conflicts += 1
         summary.serverReached = true
       } else {
-        const message = error instanceof Error ? error.message : 'The task server is unavailable.'
-        await failTaskSync(item, message)
+        await failTaskSync(item, error instanceof Error ? error.message : 'The task server is unavailable.')
         summary.failed += 1
         if (error instanceof TaskApiError) summary.serverReached = true
         if (!(error instanceof TaskApiError)) break
@@ -66,13 +59,10 @@ export async function synchroniseTasks(): Promise<SyncSummary> {
   }
 
   try {
-    const serverTasks = await fetchServerTasks()
-    await mergeServerTasks(serverTasks)
+    await mergeServerTasks(await fetchServerTasks())
     summary.serverReached = true
   } catch {
     // Pending local data remains queued and is retried on the next sync trigger.
   }
-
-  if (summary.serverReached && summary.failed === 0 && summary.conflicts === 0) rememberSuccessfulSync(new Date().toISOString())
   return summary
 }

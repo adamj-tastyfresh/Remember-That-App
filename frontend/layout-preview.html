@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#14243d" />
-    <title>Remember That — Offline Task Preview</title>
+    <title>Remember That — Tasks and Inventory Preview</title>
     <link rel="stylesheet" href="./src/index.css" />
     <link rel="stylesheet" href="./src/App.css" />
     <style>
@@ -41,7 +41,7 @@
         <nav aria-label="Primary navigation">
           <button class="nav-item active" data-view="home" type="button"><span aria-hidden="true">⌂</span> Home</button>
           <button class="nav-item" data-view="tasks" type="button"><span aria-hidden="true">✓</span> Tasks</button>
-          <span class="nav-item muted"><span aria-hidden="true">□</span> Inventory</span>
+          <button class="nav-item" data-view="inventory" type="button"><span aria-hidden="true">□</span> Inventory</button>
           <span class="nav-item muted"><span aria-hidden="true">⌕</span> Search</span>
           <button class="nav-item" data-view="archives" type="button"><span aria-hidden="true">▱</span> Archives</button>
         </nav>
@@ -64,15 +64,16 @@
             <section class="welcome-panel">
               <p class="eyebrow">Workspace</p>
               <h1>Hello, <span class="welcome-name">Adam</span></h1>
-              <p>Your task diary works offline and safely queues changes for the internal server.</p>
-              <button class="welcome-action" data-view="tasks" type="button">Add a task</button>
+              <p>Your task diary and inventory work offline and safely queue changes for the internal server.</p>
+              <div class="welcome-actions"><button class="welcome-action" data-view="tasks" type="button">Add a task</button><button class="welcome-action secondary" data-view="inventory" type="button">Add inventory</button></div>
             </section>
             <section aria-labelledby="overview-heading">
               <div class="section-heading"><div><p class="eyebrow">Today</p><h2 id="overview-heading">Workspace overview</h2></div><span class="status-pill">Offline ready</span></div>
-              <div class="summary-grid">
+              <div class="summary-grid overview-grid">
                 <button data-view="tasks" type="button"><span class="summary-number" id="active-count">2</span><strong>Active tasks</strong><small>View the shared diary</small></button>
-                <div><span class="summary-number" id="pending-count">1</span><strong>Waiting to sync</strong><small>Your local changes</small></div>
-                <button data-view="archives" type="button"><span class="summary-number" id="archive-count">0</span><strong>Archived tasks</strong><small>View retained history</small></button>
+                <button data-view="inventory" type="button"><span class="summary-number" id="inventory-count">2</span><strong>Inventory items</strong><small>Find stored equipment</small></button>
+                <div><span class="summary-number" id="pending-count">2</span><strong>Waiting to sync</strong><small>Your local changes</small></div>
+                <button data-view="archives" type="button"><span class="summary-number" id="archive-count">0</span><strong>Archived records</strong><small>View retained history</small></button>
               </div>
             </section>
           </div>
@@ -93,17 +94,36 @@
               <div class="task-list" id="task-list"></div>
             </section>
           </div>
+          <div class="tasks-layout" id="inventory-view" hidden>
+            <section class="task-form-card inventory-form-card" aria-labelledby="inventory-form-heading">
+              <div class="task-form-heading"><div><p class="eyebrow" id="inventory-form-eyebrow">New item</p><h2 id="inventory-form-heading">Add inventory</h2></div><button class="text-button" id="cancel-inventory-edit" type="button" hidden>Cancel</button></div>
+              <form id="inventory-form">
+                <label for="item-name">Item name</label>
+                <input id="item-name" placeholder="What item are we storing?" autocomplete="off" required />
+                <label for="item-location">Item location</label>
+                <input id="item-location" placeholder="Where can it be found?" autocomplete="off" required />
+                <button class="primary-button save-task-button" id="save-inventory" type="submit">Add inventory</button>
+              </form>
+            </section>
+            <section class="task-feed" aria-labelledby="inventory-list-heading">
+              <div class="section-heading compact"><div><p class="eyebrow">Item locations</p><h1 id="inventory-list-heading">Inventory</h1></div><span class="task-count inventory-count" id="inventory-list-count">2</span></div>
+              <div class="inventory-list" id="inventory-list"></div>
+            </section>
+          </div>
 
-          <section class="archive-view" id="archives-view" aria-labelledby="archive-heading" hidden>
-            <div class="page-heading"><p class="eyebrow">Retained history</p><h1 id="archive-heading">Archived tasks</h1><p>Archived tasks are hidden from the active diary but remain stored on this device.</p></div>
-            <div class="task-list" id="archive-list"></div>
+          <section class="archive-view wide-archive" id="archives-view" aria-labelledby="archive-heading" hidden>
+            <div class="page-heading"><p class="eyebrow">Retained history</p><h1 id="archive-heading">Archives</h1><p>Archived tasks and inventory remain stored and retain their original creator.</p></div>
+            <div class="archive-sections">
+              <section><div class="section-heading compact"><div><p class="eyebrow">Diary history</p><h2>Archived tasks</h2></div></div><div class="task-list" id="archive-list"></div></section>
+              <section><div class="section-heading compact"><div><p class="eyebrow">Location history</p><h2>Archived inventory</h2></div></div><div class="inventory-list" id="inventory-archive-list"></div></section>
+            </div>
           </section>
         </main>
 
         <nav class="mobile-nav" aria-label="Mobile navigation">
           <button class="active" data-view="home" type="button"><span aria-hidden="true">⌂</span>Home</button>
           <button data-view="tasks" type="button"><span aria-hidden="true">✓</span>Tasks</button>
-          <span><span aria-hidden="true">□</span>Inventory</span>
+          <button data-view="inventory" type="button"><span aria-hidden="true">□</span>Inventory</button>
           <button data-view="archives" type="button"><span aria-hidden="true">▱</span>Archives</button>
         </nav>
       </div>
@@ -131,6 +151,12 @@
         { id: 2, title: 'Check warehouse printer', description: 'Printing is faint from tray two. Check the toner and rollers.', creator: 'Mary', created: '13 Aug 2026, 1:15 pm', archived: false },
       ]
 
+      let editingInventoryId = null
+      let nextInventoryId = 3
+      let inventory = [
+        { id: 1, name: '8-port network switch', location: 'IT cupboard · Shelf 2', creator: 'Adam', created: '13 Aug 2026, 3:05 pm', archived: false },
+        { id: 2, name: 'Spare label printer', location: 'Warehouse office · Lower cabinet', creator: 'Daniel', created: '12 Aug 2026, 10:20 am', archived: false },
+      ]
       const gate = document.querySelector('#user-gate')
       const shell = document.querySelector('#app-shell')
       const userForm = document.querySelector('#user-form')
@@ -139,6 +165,9 @@
       const taskForm = document.querySelector('#task-form')
       const taskTitle = document.querySelector('#task-title')
       const taskDescription = document.querySelector('#task-description')
+      const inventoryForm = document.querySelector('#inventory-form')
+      const itemName = document.querySelector('#item-name')
+      const itemLocation = document.querySelector('#item-location')
       const switchDialog = document.querySelector('#switch-dialog')
       const togglePreview = document.querySelector('#toggle-preview')
       const syncNow = document.querySelector('#sync-now')
@@ -163,23 +192,44 @@
         }).join('')
       }
 
+      function renderInventoryList(targetId, archived) {
+        const target = document.querySelector(targetId)
+        const visibleInventory = inventory.filter((record) => record.archived === archived)
+        if (visibleInventory.length === 0) {
+          target.innerHTML = '<div class="empty-state"><span class="inventory-empty-icon" aria-hidden="true">□</span><h3>' + (archived ? 'No archived inventory' : 'No inventory yet') + '</h3><p>' + (archived ? 'Archived inventory will stay available here.' : 'Add the first item and its location.') + '</p></div>'
+          return
+        }
+        target.innerHTML = visibleInventory.map((record) => {
+          const actions = !archived && record.creator === currentUser
+            ? '<div class="task-actions"><button type="button" data-inventory-edit="' + record.id + '">Edit</button><button class="archive-button" type="button" data-inventory-archive="' + record.id + '">Archive</button></div>'
+            : !archived ? '<span class="owner-note">View only</span>' : ''
+          return '<article class="inventory-card"><div class="inventory-icon" aria-hidden="true">□</div><div class="inventory-card-body"><div class="task-card-topline"><span class="sync-badge waiting"><span></span>Waiting to Sync</span><span class="task-date">' + record.created + '</span></div><h3>' + escapeHtml(record.name) + '</h3><p class="inventory-location"><span aria-hidden="true">⌖</span>' + escapeHtml(record.location) + '</p><footer><span>Created by <strong>' + record.creator + '</strong></span>' + actions + '</footer></div></article>'
+        }).join('')
+      }
       function updatePage() {
         const active = tasks.filter((task) => !task.archived)
         const archived = tasks.filter((task) => task.archived)
-        const pending = tasks.filter((task) => task.creator === currentUser).length
+        const activeInventory = inventory.filter((record) => !record.archived)
+        const archivedInventory = inventory.filter((record) => record.archived)
+        const pending = tasks.filter((task) => task.creator === currentUser).length + inventory.filter((record) => record.creator === currentUser).length
         document.querySelectorAll('.welcome-name').forEach((element) => { element.textContent = currentUser })
         document.querySelector('#active-count').textContent = active.length
+        document.querySelector('#inventory-count').textContent = activeInventory.length
         document.querySelector('#pending-count').textContent = pending
-        document.querySelector('#archive-count').textContent = archived.length
+        document.querySelector('#archive-count').textContent = archived.length + archivedInventory.length
+        document.querySelector('#inventory-list-count').textContent = activeInventory.length
         document.querySelector('#task-count').textContent = active.length
         document.querySelector('#pending-label').textContent = pending + ' waiting to sync'
         renderTaskList('#task-list', false)
         renderTaskList('#archive-list', true)
+        renderInventoryList('#inventory-list', false)
+        renderInventoryList('#inventory-archive-list', true)
       }
 
       function changeView(view) {
         document.querySelector('#home-view').hidden = view !== 'home'
         document.querySelector('#tasks-view').hidden = view !== 'tasks'
+        document.querySelector('#inventory-view').hidden = view !== 'inventory'
         document.querySelector('#archives-view').hidden = view !== 'archives'
         document.querySelectorAll('[data-view]').forEach((button) => button.classList.toggle('active', button.dataset.view === view))
         window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -194,6 +244,14 @@
         document.querySelector('#cancel-edit').hidden = true
       }
 
+      function resetInventoryForm() {
+        editingInventoryId = null
+        inventoryForm.reset()
+        document.querySelector('#inventory-form-eyebrow').textContent = 'New item'
+        document.querySelector('#inventory-form-heading').textContent = 'Add inventory'
+        document.querySelector('#save-inventory').textContent = 'Add inventory'
+        document.querySelector('#cancel-inventory-edit').hidden = true
+      }
       userForm.addEventListener('submit', (event) => {
         event.preventDefault()
         currentUser = initialUser.value
@@ -219,6 +277,41 @@
         updatePage()
       })
 
+      inventoryForm.addEventListener('submit', (event) => {
+        event.preventDefault()
+        if (editingInventoryId) {
+          const record = inventory.find((item) => item.id === editingInventoryId)
+          record.name = itemName.value.trim()
+          record.location = itemLocation.value.trim()
+        } else {
+          inventory.unshift({ id: nextInventoryId++, name: itemName.value.trim(), location: itemLocation.value.trim(), creator: currentUser, created: 'Just now', archived: false })
+        }
+        resetInventoryForm()
+        updatePage()
+      })
+
+      document.querySelector('#inventory-list').addEventListener('click', (event) => {
+        const editButton = event.target.closest('[data-inventory-edit]')
+        const archiveButton = event.target.closest('[data-inventory-archive]')
+        if (editButton) {
+          const record = inventory.find((item) => item.id === Number(editButton.dataset.inventoryEdit))
+          editingInventoryId = record.id
+          itemName.value = record.name
+          itemLocation.value = record.location
+          document.querySelector('#inventory-form-eyebrow').textContent = 'Update location'
+          document.querySelector('#inventory-form-heading').textContent = 'Edit inventory'
+          document.querySelector('#save-inventory').textContent = 'Save changes'
+          document.querySelector('#cancel-inventory-edit').hidden = false
+          itemName.focus()
+        }
+        if (archiveButton) {
+          inventory.find((item) => item.id === Number(archiveButton.dataset.inventoryArchive)).archived = true
+          resetInventoryForm()
+          updatePage()
+        }
+      })
+
+      document.querySelector('#cancel-inventory-edit').addEventListener('click', resetInventoryForm)
       document.querySelector('#task-list').addEventListener('click', (event) => {
         const editButton = event.target.closest('[data-edit]')
         const archiveButton = event.target.closest('[data-archive]')

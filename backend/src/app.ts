@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { healthRouter } from './routes/health';
 import { tasksRouter } from './routes/tasks';
+import { inventoryRouter } from './routes/inventory';
 import { env } from './config/env';
 
 export function createApp() {
@@ -12,6 +13,7 @@ export function createApp() {
 
   app.use('/api/v1/health', healthRouter);
   app.use('/api/v1/tasks', tasksRouter);
+  app.use('/api/v1/inventory', inventoryRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: { code: 'NOT_FOUND', message: 'The requested API route does not exist.' } });

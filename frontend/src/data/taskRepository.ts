@@ -2,7 +2,7 @@ import type { ServerTaskSnapshot, SyncStatus, TaskRecord } from '../domain/task.
 import type { SyncQueueItem } from '../sync/types.ts'
 
 const DATABASE_NAME = 'remember-that'
-const DATABASE_VERSION = 2
+const DATABASE_VERSION = 3
 const TASK_STORE = 'tasks'
 const SYNC_STORE = 'taskSyncQueue'
 
@@ -18,6 +18,14 @@ function openDatabase(): Promise<IDBDatabase> {
       }
       if (!database.objectStoreNames.contains(SYNC_STORE)) {
         database.createObjectStore(SYNC_STORE, { keyPath: 'taskId' })
+      }
+      if (!database.objectStoreNames.contains('inventory')) {
+        const inventory = database.createObjectStore('inventory', { keyPath: 'id' })
+        inventory.createIndex('archived', 'archived')
+        inventory.createIndex('creatorId', 'creatorId')
+      }
+      if (!database.objectStoreNames.contains('inventorySyncQueue')) {
+        database.createObjectStore('inventorySyncQueue', { keyPath: 'inventoryId' })
       }
     }
     request.onsuccess = () => resolve(request.result)
