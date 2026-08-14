@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { listAttachments } from '../data/attachmentRepository.ts'
 import { listInventory } from '../data/inventoryRepository.ts'
 import { listTasks } from '../data/taskRepository.ts'
+import type { LocalAttachmentRecord } from '../domain/attachment.ts'
 import type { InventoryRecord } from '../domain/inventory.ts'
 import type { TaskRecord } from '../domain/task.ts'
+import { synchroniseAttachmentMetadata } from '../sync/attachmentSync.ts'
 import { synchroniseInventory } from '../sync/inventorySync.ts'
 import { getLastSuccessfulSync, rememberSuccessfulSync, synchroniseTasks } from '../sync/taskSync.ts'
 
@@ -12,6 +15,7 @@ type SyncStatusBarProps = {
   pendingCount: number
   onTasksChanged: (tasks: TaskRecord[]) => void
   onInventoryChanged: (records: InventoryRecord[]) => void
+  onAttachmentsChanged: (records: LocalAttachmentRecord[]) => void
 }
 
 function formatLastSync(value: string | null): string {
@@ -22,7 +26,7 @@ function formatLastSync(value: string | null): string {
   }).format(new Date(value))
 }
 
-export function SyncStatusBar({ pendingCount, onTasksChanged, onInventoryChanged }: SyncStatusBarProps) {
+export function SyncStatusBar({ pendingCount, onTasksChanged, onInventoryChanged, onAttachmentsChanged }: SyncStatusBarProps) {
   const [syncing, setSyncing] = useState(false)
   const [lastSuccessfulSync, setLastSuccessfulSync] = useState(getLastSuccessfulSync)
   const [online, setOnline] = useState(navigator.onLine)
@@ -33,20 +37,21 @@ export function SyncStatusBar({ pendingCount, onTasksChanged, onInventoryChanged
     syncInProgress.current = true
     setSyncing(true)
     try {
-      const [taskSummary, inventorySummary] = await Promise.all([synchroniseTasks(), synchroniseInventory()])
-      const summaries = [taskSummary, inventorySummary]
+      const [taskSummary, inventorySummary, attachmentSummary] = await Promise.all([synchroniseTasks(), synchroniseInventory(), synchroniseAttachmentMetadata()])
+      const summaries = [taskSummary, inventorySummary, attachmentSummary]
       if (summaries.every((summary) => summary.serverReached && summary.failed === 0 && summary.conflicts === 0)) {
         rememberSuccessfulSync(new Date().toISOString())
       }
-      const [tasks, inventory] = await Promise.all([listTasks(), listInventory()])
+      const [tasks, inventory, attachments] = await Promise.all([listTasks(), listInventory(), listAttachments()])
       onTasksChanged(tasks)
       onInventoryChanged(inventory)
+      onAttachmentsChanged(attachments)
       setLastSuccessfulSync(getLastSuccessfulSync())
     } finally {
       syncInProgress.current = false
       setSyncing(false)
     }
-  }, [onInventoryChanged, onTasksChanged])
+  }, [onAttachmentsChanged, onInventoryChanged, onTasksChanged])
 
   useEffect(() => {
     const handleOnline = () => { setOnline(true); void runSync() }

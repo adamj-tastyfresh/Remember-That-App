@@ -3,7 +3,7 @@ import type { SyncStatus } from '../domain/task.ts'
 import type { InventorySyncQueueItem } from '../sync/inventoryTypes.ts'
 
 const DATABASE_NAME = 'remember-that'
-const DATABASE_VERSION = 3
+const DATABASE_VERSION = 4
 const INVENTORY_STORE = 'inventory'
 const SYNC_STORE = 'inventorySyncQueue'
 
@@ -28,6 +28,12 @@ function openDatabase(): Promise<IDBDatabase> {
       if (!database.objectStoreNames.contains(SYNC_STORE)) {
         database.createObjectStore(SYNC_STORE, { keyPath: 'inventoryId' })
       }
+      if (!database.objectStoreNames.contains('attachments')) {
+        const attachments = database.createObjectStore('attachments', { keyPath: 'id' })
+        attachments.createIndex('parentRecordId', 'parentRecordId')
+        attachments.createIndex('uploadedById', 'uploadedById')
+      }
+      if (!database.objectStoreNames.contains('attachmentSyncQueue')) database.createObjectStore('attachmentSyncQueue', { keyPath: 'attachmentId' })
     }
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error ?? new Error('Could not open local inventory storage.'))
@@ -85,6 +91,7 @@ export async function saveInventoryRecord(record: InventoryRecord): Promise<void
       inventoryId: record.id,
       operationId: crypto.randomUUID(),
       actingUserId: record.creatorId,
+      action: 'upsert',
       record: queuedRecord,
       createdAt: new Date().toISOString(),
       attempts: 0,
@@ -178,7 +185,7 @@ export async function markInventoryConflict(item: InventorySyncQueueItem, server
       result(recordStore.get(item.inventoryId) as IDBRequest<InventoryRecord | undefined>, 'Could not load conflicting inventory.'),
       result(queueStore.get(item.inventoryId) as IDBRequest<InventorySyncQueueItem | undefined>, 'Could not load inventory conflict operation.'),
     ])
-    if (record) recordStore.put({ ...normalize(record), syncStatus: 'Conflict Detected', syncError: 'Review the local and server versions.', conflictServerRecord: server })
+    if (record) recordStore.put({ ...normalize(record), syncStatus: 'Conflict Detected', syncError: 'Review the local and server versions.', conflictServerRecord: server, pendingPermanentDeletion: item.action === 'delete' ? false : record.pendingPermanentDeletion })
     if (queue?.operationId === item.operationId) queueStore.put({ ...queue, blockedByConflict: true, lastError: 'Conflict detected' })
     await finished(transaction)
   } finally {
@@ -196,6 +203,63 @@ export async function mergeServerInventory(serverRecords: readonly ServerInvento
     for (const server of serverRecords) {
       const local = localById.get(server.id)
       if (!local || local.syncStatus === 'Synced') store.put(fromServer(server, local?.localVersion ?? 1))
+    }
+    await finished(transaction)
+  } finally {
+    database.close()
+  }
+}
+export async function queuePermanentInventoryDeletion(record: InventoryRecord): Promise<void> {
+  const database = await openDatabase()
+  try {
+    const transaction = database.transaction([INVENTORY_STORE, SYNC_STORE], 'readwrite')
+    const pendingRecord = { ...normalize(record), syncStatus: 'Waiting to Sync' as const, pendingPermanentDeletion: true }
+    const queueItem: InventorySyncQueueItem = {
+      inventoryId: record.id,
+      operationId: crypto.randomUUID(),
+      actingUserId: record.creatorId,
+      action: 'delete',
+      record: pendingRecord,
+      createdAt: new Date().toISOString(),
+      attempts: 0,
+      lastAttemptAt: null,
+      lastError: null,
+      blockedByConflict: false,
+    }
+    transaction.objectStore(INVENTORY_STORE).put(pendingRecord)
+    transaction.objectStore(SYNC_STORE).put(queueItem)
+    await finished(transaction)
+  } finally {
+    database.close()
+  }
+}
+
+export async function completePermanentInventoryDeletion(item: InventorySyncQueueItem): Promise<void> {
+  const database = await openDatabase()
+  try {
+    const transaction = database.transaction([INVENTORY_STORE, SYNC_STORE], 'readwrite')
+    const queueStore = transaction.objectStore(SYNC_STORE)
+    const queue = await result(queueStore.get(item.inventoryId) as IDBRequest<InventorySyncQueueItem | undefined>, 'Could not load the inventory deletion operation.')
+    if (queue?.operationId === item.operationId) {
+      transaction.objectStore(INVENTORY_STORE).delete(item.inventoryId)
+      queueStore.delete(item.inventoryId)
+    }
+    await finished(transaction)
+  } finally {
+    database.close()
+  }
+}
+
+export async function applyServerInventoryDeletions(inventoryIds: readonly string[]): Promise<void> {
+  if (inventoryIds.length === 0) return
+  const database = await openDatabase()
+  try {
+    const transaction = database.transaction([INVENTORY_STORE, SYNC_STORE], 'readwrite')
+    const recordStore = transaction.objectStore(INVENTORY_STORE)
+    const queueStore = transaction.objectStore(SYNC_STORE)
+    for (const inventoryId of inventoryIds) {
+      recordStore.delete(inventoryId)
+      queueStore.delete(inventoryId)
     }
     await finished(transaction)
   } finally {

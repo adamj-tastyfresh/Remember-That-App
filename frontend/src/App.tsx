@@ -5,13 +5,16 @@ import { SearchView } from './components/SearchView.tsx'
 import { SyncStatusBar, SYNC_REQUEST_EVENT } from './components/SyncStatusBar.tsx'
 import { TaskForm } from './components/TaskForm.tsx'
 import { TaskList } from './components/TaskList.tsx'
-import { listInventory, saveInventoryRecord } from './data/inventoryRepository.ts'
-import { listTasks, saveTask } from './data/taskRepository.ts'
+import { listAttachments } from './data/attachmentRepository.ts'
+import type { LocalAttachmentRecord } from './domain/attachment.ts'
+import { listInventory, queuePermanentInventoryDeletion, saveInventoryRecord } from './data/inventoryRepository.ts'
+import { listTasks, queuePermanentTaskDeletion, saveTask } from './data/taskRepository.ts'
 import { findUser, USERS, type User } from './data/users.ts'
 import {
   archiveInventoryRecord,
   createInventoryRecord,
   hasUnsynchronisedInventory,
+  prepareInventoryPermanentDeletion,
   updateInventoryRecord,
   type InventoryInput,
   type InventoryRecord,
@@ -20,6 +23,7 @@ import {
   archiveTask,
   createTask,
   hasUnsynchronisedTasks,
+  prepareTaskPermanentDeletion,
   updateTask,
   type TaskInput,
   type TaskRecord,
@@ -27,6 +31,7 @@ import {
 import './App.css'
 
 type AppView = 'home' | 'tasks' | 'inventory' | 'search' | 'archives'
+type DeletionTarget = { type: 'task'; record: TaskRecord } | { type: 'inventory'; record: InventoryRecord }
 const USER_STORAGE_KEY = 'remember-that.current-user-id'
 
 function getStoredUser(): User | null {
@@ -37,9 +42,12 @@ function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(getStoredUser)
   const [selectedUserId, setSelectedUserId] = useState(currentUser?.id ?? '')
   const [pendingUser, setPendingUser] = useState<User | null>(null)
+  const [deletionTarget, setDeletionTarget] = useState<DeletionTarget | null>(null)
+  const [deletingPermanently, setDeletingPermanently] = useState(false)
   const [view, setView] = useState<AppView>('home')
   const [tasks, setTasks] = useState<TaskRecord[]>([])
   const [inventory, setInventory] = useState<InventoryRecord[]>([])
+  const [attachments, setAttachments] = useState<LocalAttachmentRecord[]>([])
   const [editingTask, setEditingTask] = useState<TaskRecord | null>(null)
   const [editingInventory, setEditingInventory] = useState<InventoryRecord | null>(null)
   const [loadingRecords, setLoadingRecords] = useState(true)
@@ -49,11 +57,12 @@ function App() {
 
   useEffect(() => {
     let cancelled = false
-    void Promise.all([listTasks(), listInventory()])
-      .then(([storedTasks, storedInventory]) => {
+    void Promise.all([listTasks(), listInventory(), listAttachments()])
+      .then(([storedTasks, storedInventory, storedAttachments]) => {
         if (!cancelled) {
           setTasks(storedTasks)
           setInventory(storedInventory)
+          setAttachments(storedAttachments)
         }
       })
       .catch((error: unknown) => {
@@ -72,6 +81,7 @@ function App() {
     setEditingTask(null)
     setEditingInventory(null)
     setPendingUser(null)
+    setDeletionTarget(null)
   }
 
   const selectUser = (userId: string) => {
@@ -169,6 +179,28 @@ function App() {
     }
   }
 
+  const handlePermanentDelete = async () => {
+    if (!currentUser || !deletionTarget || deletingPermanently) return
+    setDeletingPermanently(true)
+    setStorageError('')
+    try {
+      if (deletionTarget.type === 'task') {
+        const pendingDeletion = prepareTaskPermanentDeletion(deletionTarget.record, currentUser)
+        await queuePermanentTaskDeletion(pendingDeletion)
+        setTasks((existing) => [pendingDeletion, ...existing.filter((task) => task.id !== pendingDeletion.id)])
+      } else {
+        const pendingDeletion = prepareInventoryPermanentDeletion(deletionTarget.record, currentUser)
+        await queuePermanentInventoryDeletion(pendingDeletion)
+        setInventory((existing) => [pendingDeletion, ...existing.filter((record) => record.id !== pendingDeletion.id)])
+      }
+      setDeletionTarget(null)
+      if (navigator.onLine) window.dispatchEvent(new Event(SYNC_REQUEST_EVENT))
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Could not queue this permanent deletion.')
+    } finally {
+      setDeletingPermanently(false)
+    }
+  }
   if (!currentUser) {
     return (
       <main className="user-gate">
@@ -195,13 +227,14 @@ function App() {
     )
   }
 
-  const activeTasks = tasks.filter((task) => !task.archived)
-  const archivedTasks = tasks.filter((task) => task.archived)
-  const activeInventory = inventory.filter((record) => !record.archived)
-  const archivedInventory = inventory.filter((record) => record.archived)
+  const activeTasks = tasks.filter((task) => !task.archived && !task.pendingPermanentDeletion)
+  const archivedTasks = tasks.filter((task) => task.archived && !task.pendingPermanentDeletion)
+  const activeInventory = inventory.filter((record) => !record.archived && !record.pendingPermanentDeletion)
+  const archivedInventory = inventory.filter((record) => record.archived && !record.pendingPermanentDeletion)
   const pendingCount = [
     ...tasks.filter((task) => task.creatorId === currentUser.id && task.syncStatus !== 'Synced'),
     ...inventory.filter((record) => record.creatorId === currentUser.id && record.syncStatus !== 'Synced'),
+    ...attachments.filter((attachment) => attachment.uploadedById === currentUser.id && attachment.syncStatus !== 'Synced'),
   ].length
 
   const changeView = (nextView: AppView) => {
@@ -232,7 +265,7 @@ function App() {
         <header className="topbar">
           <div className="mobile-brand"><div className="brand-mark" aria-hidden="true">R</div><strong>Remember That</strong></div>
           <div className="topbar-actions">
-            <SyncStatusBar pendingCount={pendingCount} onTasksChanged={setTasks} onInventoryChanged={setInventory} />
+            <SyncStatusBar pendingCount={pendingCount} onTasksChanged={setTasks} onInventoryChanged={setInventory} onAttachmentsChanged={setAttachments} />
             <label className="user-switcher">
               <span>Using as</span>
               <select aria-label="Current user" value={currentUser.id} onChange={(event) => selectUser(event.target.value)}>
@@ -281,7 +314,7 @@ function App() {
               <TaskForm editingTask={editingTask} saving={savingTask} onCancel={() => setEditingTask(null)} onSave={handleSaveTask} />
               <section className="task-feed" aria-labelledby="task-list-heading">
                 <div className="section-heading compact"><div><p className="eyebrow">Shared diary</p><h1 id="task-list-heading">Active tasks</h1></div><span className="task-count">{activeTasks.length}</span></div>
-                {loadingRecords ? <p className="loading-state">Loading tasks from this device…</p> : <TaskList tasks={activeTasks} currentUser={currentUser} onEdit={setEditingTask} onArchive={(task) => void handleArchiveTask(task)} />}
+                {loadingRecords ? <p className="loading-state">Loading tasks from this device…</p> : <TaskList tasks={activeTasks} attachments={attachments} currentUser={currentUser} onEdit={setEditingTask} onArchive={(task) => void handleArchiveTask(task)} />}
               </section>
             </div>
           )}
@@ -291,7 +324,7 @@ function App() {
               <InventoryForm editingRecord={editingInventory} saving={savingInventory} onCancel={() => setEditingInventory(null)} onSave={handleSaveInventory} />
               <section className="task-feed" aria-labelledby="inventory-list-heading">
                 <div className="section-heading compact"><div><p className="eyebrow">Item locations</p><h1 id="inventory-list-heading">Inventory</h1></div><span className="task-count inventory-count">{activeInventory.length}</span></div>
-                {loadingRecords ? <p className="loading-state">Loading inventory from this device…</p> : <InventoryList records={activeInventory} currentUser={currentUser} onEdit={setEditingInventory} onArchive={(record) => void handleArchiveInventory(record)} />}
+                {loadingRecords ? <p className="loading-state">Loading inventory from this device…</p> : <InventoryList records={activeInventory} attachments={attachments} currentUser={currentUser} onEdit={setEditingInventory} onArchive={(record) => void handleArchiveInventory(record)} />}
               </section>
             </div>
           )}
@@ -311,11 +344,11 @@ function App() {
               <div className="archive-sections">
                 <section aria-labelledby="archived-tasks-heading">
                   <div className="section-heading compact"><div><p className="eyebrow">Diary history</p><h2 id="archived-tasks-heading">Archived tasks</h2></div><span className="task-count">{archivedTasks.length}</span></div>
-                  {loadingRecords ? <p className="loading-state">Loading archived tasks…</p> : <TaskList tasks={archivedTasks} currentUser={currentUser} archived />}
+                  {loadingRecords ? <p className="loading-state">Loading archived tasks…</p> : <TaskList tasks={archivedTasks} attachments={attachments} currentUser={currentUser} archived onDelete={(task) => setDeletionTarget({ type: 'task', record: task })} />}
                 </section>
                 <section aria-labelledby="archived-inventory-heading">
                   <div className="section-heading compact"><div><p className="eyebrow">Location history</p><h2 id="archived-inventory-heading">Archived inventory</h2></div><span className="task-count inventory-count">{archivedInventory.length}</span></div>
-                  {loadingRecords ? <p className="loading-state">Loading archived inventory…</p> : <InventoryList records={archivedInventory} currentUser={currentUser} archived />}
+                  {loadingRecords ? <p className="loading-state">Loading archived inventory…</p> : <InventoryList records={archivedInventory} attachments={attachments} currentUser={currentUser} archived onDelete={(record) => setDeletionTarget({ type: 'inventory', record })} />}
                 </section>
               </div>
             </section>
@@ -340,6 +373,19 @@ function App() {
             <div className="dialog-actions">
               <button type="button" onClick={() => setPendingUser(null)}>Stay as {currentUser.name}</button>
               <button className="primary-button" type="button" onClick={() => applyUser(pendingUser)}>Switch user</button>
+            </div>
+          </section>
+        </div>
+      )}
+      {deletionTarget && (
+        <div className="dialog-backdrop" role="presentation">
+          <section className="confirm-dialog delete-dialog" role="dialog" aria-modal="true" aria-labelledby="permanent-delete-heading">
+            <span className="dialog-icon danger" aria-hidden="true">!</span>
+            <h2 id="permanent-delete-heading">Delete permanently?</h2>
+            <p><strong>{deletionTarget.type === 'task' ? deletionTarget.record.title : deletionTarget.record.itemName}</strong> will be removed from this device and queued for deletion everywhere. This cannot be undone.</p>
+            <div className="dialog-actions">
+              <button type="button" onClick={() => setDeletionTarget(null)} disabled={deletingPermanently}>Cancel</button>
+              <button className="danger-button" type="button" onClick={() => void handlePermanentDelete()} disabled={deletingPermanently}>{deletingPermanently ? 'Deleting…' : 'Delete permanently'}</button>
             </div>
           </section>
         </div>

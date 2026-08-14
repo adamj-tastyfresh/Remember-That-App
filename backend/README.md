@@ -14,12 +14,16 @@ Back up the target database, review the scripts, then run these migrations in or
 
 1. `sql/migrations/001_create_users_tasks.sql`
 2. `sql/migrations/002_create_inventory.sql`
+3. `sql/migrations/003_create_deletion_log.sql`
+4. `sql/migrations/004_create_attachments.sql`
 
 The migrations create:
 
 - The five approved internal users
 - Versioned task and inventory records with archive metadata
 - Idempotent task and inventory operation receipts
+- Permanent-deletion tombstones and a minimal deletion audit log
+- Attachment metadata and idempotent attachment-operation receipts
 - Indexes for update and active/archive queries
 
 Each script includes recovery notes. Database credentials remain server-side.
@@ -29,12 +33,15 @@ Each script includes recovery notes. Database credentials remain server-side.
 - `GET /api/v1/health`
 - `GET /api/v1/tasks`
 - `POST /api/v1/tasks/sync`
+- `POST /api/v1/tasks/delete`
 - `GET /api/v1/inventory`
 - `POST /api/v1/inventory/sync`
+- `POST /api/v1/inventory/delete`
+- `GET /api/v1/attachments`
 
 Sync operations use client-generated operation IDs. Repeating the same operation does not create a duplicate record. Updates require the last known server version; stale versions receive HTTP 409 with the server record so the client can retain both versions for review.
 
-The API enforces creator-only edits and archives for tasks and inventory independently of frontend controls. Inventory accepts only an item name and item location as editable user data. User selection is identification, not secure authentication, so production access must still be restricted to the approved company environment.
+The API enforces creator-only edits, archives, and permanent deletions for tasks and inventory independently of frontend controls. Inventory accepts only an item name and item location as editable user data. User selection is identification, not secure authentication, so production access must still be restricted to the approved company environment.
 
 ## Development
 
@@ -43,3 +50,8 @@ Run `npm install` followed by `npm run dev` from PowerShell in the backend direc
 ## Checks
 
 Run `npm test` and `npm run build`.
+
+
+## Attachment storage boundary
+
+Migration 004 and the current API cover metadata only. The API deliberately does not expose internal storage references. Upload and download endpoints must not be enabled until the approved Tasty Fresh internal file-storage location, limits, and file-type policy are supplied.

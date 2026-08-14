@@ -14,6 +14,11 @@ The frontend now includes:
 - Inventory creation, location editing, and archiving
 - Creator-only edit and archive controls for both record types
 - A combined retained Archives view
+- Creator-only permanent deletion from Archives with explicit confirmation
+- Offline deletion tombstones that remove cached copies across devices
+- IndexedDB attachment metadata, Blob storage, and persistent upload queues
+- Safe filename, configurable size, and configurable MIME-type validation foundations
+- Record-level display for locally cached attachment metadata
 - Offline global search across active tasks and inventory
 - Case-insensitive partial-word matching across content, locations, and creators
 - Clearly labelled task and inventory search results; archived records stay excluded
@@ -29,7 +34,7 @@ The user selection identifies record ownership only. It is not secure authentica
 The selected internal user ID is stored as the small device preference
 `remember-that.current-user-id` in local storage.
 
-Task and inventory records are stored in the `remember-that` IndexedDB database.
+Task, inventory, attachment metadata, attachment Blobs, and their persistent queues are stored in the `remember-that` IndexedDB database.
 Each record has a client-generated UUID, immutable creator details, device creation
 time, archive metadata, local/server version fields, and synchronisation state.
 Inventory records deliberately contain only Item Name, Item Location, Created By,
@@ -58,3 +63,8 @@ npm run build
 
 The production build includes the configured PWA service worker and web app
 manifest.
+
+
+## Attachment foundation
+
+The attachment foundation stores files safely offline and keeps them queued, but file/camera selection and transfer to the approved internal file store are separate milestones. No attachment is marked uploaded until that future storage integration confirms it.

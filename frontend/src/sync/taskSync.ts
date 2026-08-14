@@ -1,5 +1,8 @@
-import { fetchServerTasks, pushTask, TaskApiError } from '../api/tasksApi.ts'
+import { deleteLocalAttachmentsForParents } from '../data/attachmentRepository.ts'
+import { deleteTaskOnServer, fetchServerTasks, pushTask, TaskApiError } from '../api/tasksApi.ts'
 import {
+  applyServerTaskDeletions,
+  completePermanentTaskDeletion,
   completeTaskSync,
   failTaskSync,
   listQueuedTasks,
@@ -41,11 +44,22 @@ export async function synchroniseTasks(): Promise<SyncSummary> {
     }
     await setTaskSyncStatus(item.taskId, 'Synchronising')
     try {
-      await completeTaskSync(item, await pushTask(item))
+      if ((item.action ?? 'upsert') === 'delete') {
+        await deleteTaskOnServer(item)
+        await completePermanentTaskDeletion(item)
+        await deleteLocalAttachmentsForParents([item.taskId])
+      } else {
+        await completeTaskSync(item, await pushTask(item))
+      }
       summary.synced += 1
       summary.serverReached = true
     } catch (error) {
-      if (error instanceof TaskApiError && error.code === 'CONFLICT' && error.serverTask) {
+      if (error instanceof TaskApiError && error.code === 'RECORD_DELETED') {
+        await completePermanentTaskDeletion(item)
+        await deleteLocalAttachmentsForParents([item.taskId])
+        summary.synced += 1
+        summary.serverReached = true
+      } else if (error instanceof TaskApiError && error.code === 'CONFLICT' && error.serverTask) {
         await markTaskConflict(item, error.serverTask)
         summary.conflicts += 1
         summary.serverReached = true
@@ -59,7 +73,10 @@ export async function synchroniseTasks(): Promise<SyncSummary> {
   }
 
   try {
-    await mergeServerTasks(await fetchServerTasks())
+    const server = await fetchServerTasks()
+    await mergeServerTasks(server.records)
+    await applyServerTaskDeletions(server.deletedIds)
+    await deleteLocalAttachmentsForParents(server.deletedIds)
     summary.serverReached = true
   } catch {
     // Pending local data remains queued and is retried on the next sync trigger.

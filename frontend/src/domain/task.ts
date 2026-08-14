@@ -40,6 +40,7 @@ export type TaskRecord = {
   lastSyncedAt: string | null
   syncError: string | null
   conflictServerTask: ServerTaskSnapshot | null
+  pendingPermanentDeletion?: boolean
 }
 
 export type TaskInput = {
@@ -121,4 +122,9 @@ export function archiveTask(
 
 export function hasUnsynchronisedTasks(tasks: readonly TaskRecord[], userId: string): boolean {
   return tasks.some((task) => task.creatorId === userId && task.syncStatus !== 'Synced')
+}
+export function prepareTaskPermanentDeletion(task: TaskRecord, user: User): TaskRecord {
+  if (!task.archived) throw new Error('Only archived tasks can be permanently deleted.')
+  if (task.creatorId !== user.id) throw new Error('Only the person who created this task can permanently delete it.')
+  return { ...task, syncStatus: 'Waiting to Sync', syncError: null, pendingPermanentDeletion: true }
 }

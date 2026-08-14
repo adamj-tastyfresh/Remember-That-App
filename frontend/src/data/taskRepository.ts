@@ -2,7 +2,7 @@ import type { ServerTaskSnapshot, SyncStatus, TaskRecord } from '../domain/task.
 import type { SyncQueueItem } from '../sync/types.ts'
 
 const DATABASE_NAME = 'remember-that'
-const DATABASE_VERSION = 3
+const DATABASE_VERSION = 4
 const TASK_STORE = 'tasks'
 const SYNC_STORE = 'taskSyncQueue'
 
@@ -27,6 +27,12 @@ function openDatabase(): Promise<IDBDatabase> {
       if (!database.objectStoreNames.contains('inventorySyncQueue')) {
         database.createObjectStore('inventorySyncQueue', { keyPath: 'inventoryId' })
       }
+      if (!database.objectStoreNames.contains('attachments')) {
+        const attachments = database.createObjectStore('attachments', { keyPath: 'id' })
+        attachments.createIndex('parentRecordId', 'parentRecordId')
+        attachments.createIndex('uploadedById', 'uploadedById')
+      }
+      if (!database.objectStoreNames.contains('attachmentSyncQueue')) database.createObjectStore('attachmentSyncQueue', { keyPath: 'attachmentId' })
     }
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error ?? new Error('Could not open local task storage.'))
@@ -87,6 +93,7 @@ export async function saveTask(task: TaskRecord): Promise<void> {
       taskId: task.id,
       operationId: crypto.randomUUID(),
       actingUserId: task.creatorId,
+      action: 'upsert',
       task: queuedTask,
       createdAt: new Date().toISOString(),
       attempts: 0,
@@ -181,7 +188,7 @@ export async function markTaskConflict(item: SyncQueueItem, serverTask: ServerTa
       requestResult(taskStore.get(item.taskId) as IDBRequest<TaskRecord | undefined>, 'Could not load the conflicting task.'),
       requestResult(queueStore.get(item.taskId) as IDBRequest<SyncQueueItem | undefined>, 'Could not load the conflicting operation.'),
     ])
-    if (task) taskStore.put({ ...normalizeTask(task), syncStatus: 'Conflict Detected', syncError: 'Review the local and server versions.', conflictServerTask: serverTask })
+    if (task) taskStore.put({ ...normalizeTask(task), syncStatus: 'Conflict Detected', syncError: 'Review the local and server versions.', conflictServerTask: serverTask, pendingPermanentDeletion: item.action === 'delete' ? false : task.pendingPermanentDeletion })
     if (queue?.operationId === item.operationId) queueStore.put({ ...queue, blockedByConflict: true, lastError: 'Conflict detected' })
     await waitForTransaction(transaction)
   } finally {
@@ -199,6 +206,63 @@ export async function mergeServerTasks(serverTasks: readonly ServerTaskSnapshot[
     for (const serverTask of serverTasks) {
       const localTask = localById.get(serverTask.id)
       if (!localTask || localTask.syncStatus === 'Synced') store.put(fromServer(serverTask, localTask?.localVersion ?? 1))
+    }
+    await waitForTransaction(transaction)
+  } finally {
+    database.close()
+  }
+}
+export async function queuePermanentTaskDeletion(task: TaskRecord): Promise<void> {
+  const database = await openDatabase()
+  try {
+    const transaction = database.transaction([TASK_STORE, SYNC_STORE], 'readwrite')
+    const pendingTask = { ...normalizeTask(task), syncStatus: 'Waiting to Sync' as const, pendingPermanentDeletion: true }
+    const queueItem: SyncQueueItem = {
+      taskId: task.id,
+      operationId: crypto.randomUUID(),
+      actingUserId: task.creatorId,
+      action: 'delete',
+      task: pendingTask,
+      createdAt: new Date().toISOString(),
+      attempts: 0,
+      lastAttemptAt: null,
+      lastError: null,
+      blockedByConflict: false,
+    }
+    transaction.objectStore(TASK_STORE).put(pendingTask)
+    transaction.objectStore(SYNC_STORE).put(queueItem)
+    await waitForTransaction(transaction)
+  } finally {
+    database.close()
+  }
+}
+
+export async function completePermanentTaskDeletion(item: SyncQueueItem): Promise<void> {
+  const database = await openDatabase()
+  try {
+    const transaction = database.transaction([TASK_STORE, SYNC_STORE], 'readwrite')
+    const queueStore = transaction.objectStore(SYNC_STORE)
+    const queue = await requestResult(queueStore.get(item.taskId) as IDBRequest<SyncQueueItem | undefined>, 'Could not load the deletion operation.')
+    if (queue?.operationId === item.operationId) {
+      transaction.objectStore(TASK_STORE).delete(item.taskId)
+      queueStore.delete(item.taskId)
+    }
+    await waitForTransaction(transaction)
+  } finally {
+    database.close()
+  }
+}
+
+export async function applyServerTaskDeletions(taskIds: readonly string[]): Promise<void> {
+  if (taskIds.length === 0) return
+  const database = await openDatabase()
+  try {
+    const transaction = database.transaction([TASK_STORE, SYNC_STORE], 'readwrite')
+    const taskStore = transaction.objectStore(TASK_STORE)
+    const queueStore = transaction.objectStore(SYNC_STORE)
+    for (const taskId of taskIds) {
+      taskStore.delete(taskId)
+      queueStore.delete(taskId)
     }
     await waitForTransaction(transaction)
   } finally {

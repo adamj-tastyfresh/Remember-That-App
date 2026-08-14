@@ -4,6 +4,7 @@ export type InventorySyncQueueItem = {
   inventoryId: string
   operationId: string
   actingUserId: string
+  action: 'upsert' | 'delete'
   record: InventoryRecord
   createdAt: string
   attempts: number

@@ -1,19 +1,23 @@
+import { AttachmentList } from './AttachmentList.tsx'
+import type { LocalAttachmentRecord } from '../domain/attachment.ts'
 import type { User } from '../data/users.ts'
 import type { InventoryRecord } from '../domain/inventory.ts'
 
 type InventoryListProps = {
   records: readonly InventoryRecord[]
+  attachments?: readonly LocalAttachmentRecord[]
   currentUser: User
   archived?: boolean
   onEdit?: (record: InventoryRecord) => void
   onArchive?: (record: InventoryRecord) => void
+  onDelete?: (record: InventoryRecord) => void
 }
 
 function formatDate(date: string): string {
   return new Intl.DateTimeFormat('en-AU', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(date))
 }
 
-export function InventoryList({ records, currentUser, archived = false, onEdit, onArchive }: InventoryListProps) {
+export function InventoryList({ records, attachments = [], currentUser, archived = false, onEdit, onArchive, onDelete }: InventoryListProps) {
   if (records.length === 0) {
     return (
       <div className="empty-state">
@@ -39,6 +43,7 @@ export function InventoryList({ records, currentUser, archived = false, onEdit, 
               </div>
               <h3>{record.itemName}</h3>
               <p className="inventory-location"><span aria-hidden="true">⌖</span>{record.itemLocation}</p>
+              <AttachmentList attachments={attachments.filter((attachment) => attachment.parentRecordType === 'inventory' && attachment.parentRecordId === record.id)} />
               {record.syncError && <p className="sync-error">{record.syncError}</p>}
               {record.conflictServerRecord && (
                 <div className="conflict-comparison">
@@ -55,6 +60,7 @@ export function InventoryList({ records, currentUser, archived = false, onEdit, 
                   </div>
                 )}
                 {!archived && !isCreator && <span className="owner-note">View only</span>}
+                {archived && isCreator && <button className="permanent-delete-button" type="button" onClick={() => onDelete?.(record)}>Delete permanently</button>}
               </footer>
             </div>
           </article>

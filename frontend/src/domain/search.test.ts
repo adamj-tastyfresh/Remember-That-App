@@ -40,3 +40,8 @@ test('excludes archived records from normal search', () => {
 test('does not return every record for a blank query', () => {
   assert.deepEqual(searchActiveRecords([task], [inventory], '   '), [])
 })
+
+
+test('excludes records waiting for permanent deletion', () => {
+  assert.equal(searchActiveRecords([{ ...task, pendingPermanentDeletion: true }], [{ ...inventory, pendingPermanentDeletion: true }], 'a').length, 0)
+})

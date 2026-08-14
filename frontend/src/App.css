@@ -758,3 +758,31 @@ input:focus-visible, textarea:focus-visible { outline: 3px solid rgb(23 99 229 /
   .result-type { grid-column: 1 / -1; width: max-content; }
   .search-box { padding-left: 12px; }
 }
+/* Permanent deletion */
+.permanent-delete-button {
+  padding: 7px 10px;
+  border: 1px solid #efb5b0;
+  border-radius: 8px;
+  color: #a72c24;
+  background: #fff3f2;
+  font-size: 0.7rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.permanent-delete-button:hover { border-color: #df8179; background: #ffe9e7; }
+.dialog-icon.danger { color: #a72c24; background: #ffe5e2; }
+.delete-dialog p strong { color: var(--text-strong); }
+.dialog-actions .danger-button {
+  border-color: #b9342b;
+  color: white;
+  background: #b9342b;
+}
+.dialog-actions .danger-button:hover:not(:disabled) { background: #982820; }
+.dialog-actions button:disabled { opacity: 0.55; cursor: not-allowed; }
+/* Attachment metadata foundation */
+.attachment-summary { margin-top: 15px; padding: 12px 13px; border: 1px solid #dce5ef; border-radius: 10px; background: #f8fafc; }
+.attachment-summary > strong { display: flex; align-items: center; gap: 7px; color: #4b6077; font-size: 0.72rem; }
+.attachment-summary > strong span { color: var(--brand); font-size: 1rem; }
+.attachment-summary ul { display: grid; gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }
+.attachment-summary li { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--text-light); font-size: 0.68rem; }
+.attachment-name { min-width: 0; color: var(--text-muted); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

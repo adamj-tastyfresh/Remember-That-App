@@ -34,6 +34,7 @@ export type InventoryRecord = {
   lastSyncedAt: string | null
   syncError: string | null
   conflictServerRecord: ServerInventorySnapshot | null
+  pendingPermanentDeletion?: boolean
 }
 
 export type InventoryInput = {
@@ -114,4 +115,9 @@ export function archiveInventoryRecord(
 
 export function hasUnsynchronisedInventory(records: readonly InventoryRecord[], userId: string): boolean {
   return records.some((record) => record.creatorId === userId && record.syncStatus !== 'Synced')
+}
+export function prepareInventoryPermanentDeletion(record: InventoryRecord, user: User): InventoryRecord {
+  if (!record.archived) throw new Error('Only archived inventory can be permanently deleted.')
+  if (record.creatorId !== user.id) throw new Error('Only the person who created this inventory record can permanently delete it.')
+  return { ...record, syncStatus: 'Waiting to Sync', syncError: null, pendingPermanentDeletion: true }
 }

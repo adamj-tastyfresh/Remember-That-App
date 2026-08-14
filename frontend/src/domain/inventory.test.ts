@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { User } from '../data/users.ts'
-import { archiveInventoryRecord, createInventoryRecord, hasUnsynchronisedInventory, updateInventoryRecord } from './inventory.ts'
+import { archiveInventoryRecord, createInventoryRecord, hasUnsynchronisedInventory, prepareInventoryPermanentDeletion, updateInventoryRecord } from './inventory.ts'
 
 const adam: User = { id: 'usr-adam', name: 'Adam' }
 const mary: User = { id: 'usr-mary', name: 'Mary' }
@@ -33,4 +33,12 @@ test('detects unsynchronised inventory for the selected user', () => {
   const record = createInventoryRecord({ itemName: 'Switch', itemLocation: 'Cupboard' }, adam, 'inventory-4', createdAt)
   assert.equal(hasUnsynchronisedInventory([record], adam.id), true)
   assert.equal(hasUnsynchronisedInventory([record], mary.id), false)
+})
+
+test('allows only the creator to permanently delete archived inventory', () => {
+  const record = createInventoryRecord({ itemName: 'Delete me', itemLocation: 'Old shelf' }, adam, 'inventory-5', createdAt)
+  const archived = archiveInventoryRecord(record, adam)
+  assert.equal(prepareInventoryPermanentDeletion(archived, adam).pendingPermanentDeletion, true)
+  assert.throws(() => prepareInventoryPermanentDeletion(record, adam), /Only archived inventory/)
+  assert.throws(() => prepareInventoryPermanentDeletion(archived, mary), /Only the person/)
 })

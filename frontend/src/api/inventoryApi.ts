@@ -50,10 +50,22 @@ export async function pushInventory(item: InventorySyncQueueItem): Promise<Serve
   return body.data as ServerInventorySnapshot
 }
 
-export async function fetchServerInventory(): Promise<ServerInventorySnapshot[]> {
+export async function deleteInventoryOnServer(item: InventorySyncQueueItem): Promise<void> {
+  const response = await fetch(API_BASE_URL + '/inventory/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ operationId: item.operationId, actingUserId: item.actingUserId, recordId: item.inventoryId, creatorId: item.record.creatorId, baseServerVersion: item.record.serverVersion }),
+  })
+  const body = await readJson(response) as { data?: { serverRecord?: ServerInventorySnapshot }; error?: { code?: string; message?: string } } | null
+  if (!response.ok) throw new InventoryApiError(body?.error?.message ?? 'The inventory record could not be permanently deleted.', response.status, body?.error?.code ?? 'DELETE_FAILURE', body?.data?.serverRecord ?? null)
+}
+
+export type InventoryServerState = { records: ServerInventorySnapshot[]; deletedIds: string[] }
+
+export async function fetchServerInventory(): Promise<InventoryServerState> {
   const response = await fetch(API_BASE_URL + '/inventory', { headers: { Accept: 'application/json' } })
-  const body = await readJson(response) as { data?: ServerInventorySnapshot[]; error?: { code?: string; message?: string } } | null
+  const body = await readJson(response) as { data?: ServerInventorySnapshot[]; meta?: { deletedIds?: string[] }; error?: { code?: string; message?: string } } | null
   if (!response.ok) throw new InventoryApiError(body?.error?.message ?? 'The inventory server is unavailable.', response.status, body?.error?.code ?? 'SERVER_UNAVAILABLE')
   if (!Array.isArray(body?.data)) throw new InventoryApiError('The inventory server returned an invalid response.', response.status, 'INVALID_RESPONSE')
-  return body.data
+  return { records: body.data, deletedIds: Array.isArray(body.meta?.deletedIds) ? body.meta.deletedIds : [] }
 }

@@ -18,14 +18,14 @@ export function searchActiveRecords(
   if (!normalizedQuery) return []
 
   const taskResults: SearchResult[] = tasks
-    .filter((task) => !task.archived && containsQuery(
+    .filter((task) => !task.archived && !task.pendingPermanentDeletion && containsQuery(
       [task.title, task.description, task.creatorName],
       normalizedQuery,
     ))
     .map((record) => ({ type: 'task', record }))
 
   const inventoryResults: SearchResult[] = inventory
-    .filter((record) => !record.archived && containsQuery(
+    .filter((record) => !record.archived && !record.pendingPermanentDeletion && containsQuery(
       [record.itemName, record.itemLocation, record.creatorName],
       normalizedQuery,
     ))

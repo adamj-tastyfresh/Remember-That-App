@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { User } from '../data/users.ts'
-import { archiveTask, createTask, hasUnsynchronisedTasks, updateTask } from './task.ts'
+import { archiveTask, createTask, hasUnsynchronisedTasks, prepareTaskPermanentDeletion, updateTask } from './task.ts'
 
 const adam: User = { id: 'usr-adam', name: 'Adam' }
 const mary: User = { id: 'usr-mary', name: 'Mary' }
@@ -59,4 +59,12 @@ test('detects pending changes belonging to the selected user', () => {
 
   assert.equal(hasUnsynchronisedTasks([task], adam.id), true)
   assert.equal(hasUnsynchronisedTasks([task], mary.id), false)
+})
+
+test('allows only the creator to permanently delete an archived task', () => {
+  const task = createTask({ title: 'Delete me', description: 'Archived detail' }, adam, 'task-5', createdAt)
+  const archived = archiveTask(task, adam)
+  assert.equal(prepareTaskPermanentDeletion(archived, adam).pendingPermanentDeletion, true)
+  assert.throws(() => prepareTaskPermanentDeletion(task, adam), /Only archived tasks/)
+  assert.throws(() => prepareTaskPermanentDeletion(archived, mary), /Only the person/)
 })

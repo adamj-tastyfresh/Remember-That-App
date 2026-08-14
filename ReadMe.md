@@ -724,8 +724,8 @@ When developing Remember That:
 
 # Project Status
 
-Remember That is in active milestone development. The responsive PWA shell, persistent user selection, offline task diary, offline inventory tracking, synchronisation foundation, and offline global search are implemented.
+Remember That is in active milestone development. The responsive PWA shell, persistent user selection, offline task diary, offline inventory tracking, synchronisation foundation, and offline global search, permanent deletion, and the offline attachment foundation are implemented.
 
-Attachments, permanent deletion, conflict-resolution controls, and deployment remain future milestones.
+File/camera attachment controls, approved internal attachment storage integration, PWA lifecycle improvements, internal environment integration, and deployment remain future milestones. Conflict detection and side-by-side review remain in place, but a separate conflict-resolution milestone is not required.
 
 This README should be updated whenever an approved project decision changes the expected behaviour or architecture of the application.

@@ -64,9 +64,21 @@ export async function pushTask(item: SyncQueueItem): Promise<ServerTaskSnapshot>
   return body.data
 }
 
-export async function fetchServerTasks(): Promise<ServerTaskSnapshot[]> {
+export async function deleteTaskOnServer(item: SyncQueueItem): Promise<void> {
+  const response = await fetch(API_BASE_URL + '/tasks/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ operationId: item.operationId, actingUserId: item.actingUserId, recordId: item.taskId, creatorId: item.task.creatorId, baseServerVersion: item.task.serverVersion }),
+  })
+  const body = await readJson(response) as ErrorBody | null
+  if (!response.ok) throw new TaskApiError(body?.error?.message ?? 'The task could not be permanently deleted.', response.status, body?.error?.code ?? 'DELETE_FAILURE', body?.data?.serverTask ?? null)
+}
+
+export type TaskServerState = { records: ServerTaskSnapshot[]; deletedIds: string[] }
+
+export async function fetchServerTasks(): Promise<TaskServerState> {
   const response = await fetch(API_BASE_URL + '/tasks', { headers: { Accept: 'application/json' } })
-  const body = await readJson(response) as ({ data?: ServerTaskSnapshot[] } & ErrorBody) | null
+  const body = await readJson(response) as ({ data?: ServerTaskSnapshot[]; meta?: { deletedIds?: string[] } } & ErrorBody) | null
   if (!response.ok) {
     throw new TaskApiError(
       body?.error?.message ?? 'The task server is unavailable.',
@@ -75,5 +87,5 @@ export async function fetchServerTasks(): Promise<ServerTaskSnapshot[]> {
     )
   }
   if (!Array.isArray(body?.data)) throw new TaskApiError('The task server returned an invalid response.', response.status, 'INVALID_RESPONSE')
-  return body.data
+  return { records: body.data, deletedIds: Array.isArray(body.meta?.deletedIds) ? body.meta.deletedIds : [] }
 }

@@ -145,23 +145,32 @@
       </div>
     </div>
 
-    <div class="preview-tools"><button id="toggle-preview" type="button">Show app shell</button></div>
+        <div class="dialog-backdrop" id="delete-dialog" hidden>
+      <section class="confirm-dialog delete-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-heading">
+        <span class="dialog-icon danger" aria-hidden="true">!</span>
+        <h2 id="delete-heading">Delete permanently?</h2>
+        <p><strong id="delete-record-name"></strong> will be removed from this device and queued for deletion everywhere. This cannot be undone.</p>
+        <div class="dialog-actions"><button id="cancel-delete" type="button">Cancel</button><button class="danger-button" id="confirm-delete" type="button">Delete permanently</button></div>
+      </section>
+    </div>
+<div class="preview-tools"><button id="toggle-preview" type="button">Show app shell</button></div>
 
     <script>
       const users = ['Doug', 'Daniel', 'Mary', 'Adam', 'Jabbar']
       let currentUser = 'Adam'
       let requestedUser = ''
+      let pendingDeletion = null
       let editingId = null
       let nextId = 3
       let tasks = [
-        { id: 1, title: 'Replace meeting room switch', description: 'The spare switch is labelled and stored in the IT cupboard.', creator: 'Adam', created: '13 Aug 2026, 2:40 pm', archived: false },
+        { id: 1, title: 'Replace meeting room switch', description: 'The spare switch is labelled and stored in the IT cupboard.', creator: 'Adam', created: '13 Aug 2026, 2:40 pm', archived: false, attachments: [{ name: 'switch-label.jpg', size: '428 KB', status: 'Waiting to Sync' }] },
         { id: 2, title: 'Check warehouse printer', description: 'Printing is faint from tray two. Check the toner and rollers.', creator: 'Mary', created: '13 Aug 2026, 1:15 pm', archived: false },
       ]
 
       let editingInventoryId = null
       let nextInventoryId = 3
       let inventory = [
-        { id: 1, name: '8-port network switch', location: 'IT cupboard · Shelf 2', creator: 'Adam', created: '13 Aug 2026, 3:05 pm', archived: false },
+        { id: 1, name: '8-port network switch', location: 'IT cupboard · Shelf 2', creator: 'Adam', created: '13 Aug 2026, 3:05 pm', archived: false, attachments: [{ name: 'purchase-note.pdf', size: '92 KB', status: 'Synced' }] },
         { id: 2, name: 'Spare label printer', location: 'Warehouse office · Lower cabinet', creator: 'Daniel', created: '12 Aug 2026, 10:20 am', archived: false },
       ]
       const gate = document.querySelector('#user-gate')
@@ -176,6 +185,7 @@
       const itemName = document.querySelector('#item-name')
       const itemLocation = document.querySelector('#item-location')
       const switchDialog = document.querySelector('#switch-dialog')
+      const deleteDialog = document.querySelector('#delete-dialog')
       const togglePreview = document.querySelector('#toggle-preview')
       const syncNow = document.querySelector('#sync-now')
       const globalSearch = document.querySelector('#global-search')
@@ -185,6 +195,10 @@
         return value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character])
       }
 
+      function renderAttachmentSummary(record) {
+        if (!record.attachments?.length) return ''
+        return '<section class="attachment-summary"><strong><span aria-hidden="true">⌕</span>' + record.attachments.length + ' attachment</strong><ul>' + record.attachments.map((attachment) => '<li><span class="attachment-name">' + escapeHtml(attachment.name) + '</span><span>' + attachment.size + ' · ' + attachment.status + '</span></li>').join('') + '</ul></section>'
+      }
       function renderTaskList(targetId, archived) {
         const target = document.querySelector(targetId)
         const visibleTasks = tasks.filter((task) => task.archived === archived)
@@ -196,8 +210,8 @@
         target.innerHTML = visibleTasks.map((task) => {
           const actions = !archived && task.creator === currentUser
             ? '<div class="task-actions"><button type="button" data-edit="' + task.id + '">Edit</button><button class="archive-button" type="button" data-archive="' + task.id + '">Archive</button></div>'
-            : !archived ? '<span class="owner-note">View only</span>' : ''
-          return '<article class="task-card"><div class="task-card-topline"><span class="sync-badge waiting"><span></span>Waiting to Sync</span><span class="task-date">' + task.created + '</span></div><h3>' + escapeHtml(task.title) + '</h3><p class="task-description">' + escapeHtml(task.description) + '</p><footer><span>Created by <strong>' + task.creator + '</strong></span>' + actions + '</footer></article>'
+            : !archived ? '<span class="owner-note">View only</span>' : task.creator === currentUser ? '<button class="permanent-delete-button" type="button" data-delete-task="' + task.id + '">Delete permanently</button>' : ''
+          return '<article class="task-card"><div class="task-card-topline"><span class="sync-badge waiting"><span></span>Waiting to Sync</span><span class="task-date">' + task.created + '</span></div><h3>' + escapeHtml(task.title) + '</h3><p class="task-description">' + escapeHtml(task.description) + '</p>' + renderAttachmentSummary(task) + '<footer><span>Created by <strong>' + task.creator + '</strong></span>' + actions + '</footer></article>'
         }).join('')
       }
 
@@ -211,8 +225,8 @@
         target.innerHTML = visibleInventory.map((record) => {
           const actions = !archived && record.creator === currentUser
             ? '<div class="task-actions"><button type="button" data-inventory-edit="' + record.id + '">Edit</button><button class="archive-button" type="button" data-inventory-archive="' + record.id + '">Archive</button></div>'
-            : !archived ? '<span class="owner-note">View only</span>' : ''
-          return '<article class="inventory-card"><div class="inventory-icon" aria-hidden="true">□</div><div class="inventory-card-body"><div class="task-card-topline"><span class="sync-badge waiting"><span></span>Waiting to Sync</span><span class="task-date">' + record.created + '</span></div><h3>' + escapeHtml(record.name) + '</h3><p class="inventory-location"><span aria-hidden="true">⌖</span>' + escapeHtml(record.location) + '</p><footer><span>Created by <strong>' + record.creator + '</strong></span>' + actions + '</footer></div></article>'
+            : !archived ? '<span class="owner-note">View only</span>' : record.creator === currentUser ? '<button class="permanent-delete-button" type="button" data-delete-inventory="' + record.id + '">Delete permanently</button>' : ''
+          return '<article class="inventory-card"><div class="inventory-icon" aria-hidden="true">□</div><div class="inventory-card-body"><div class="task-card-topline"><span class="sync-badge waiting"><span></span>Waiting to Sync</span><span class="task-date">' + record.created + '</span></div><h3>' + escapeHtml(record.name) + '</h3><p class="inventory-location"><span aria-hidden="true">⌖</span>' + escapeHtml(record.location) + '</p>' + renderAttachmentSummary(record) + '<footer><span>Created by <strong>' + record.creator + '</strong></span>' + actions + '</footer></div></article>'
         }).join('')
       }
       function renderSearch() {
@@ -370,6 +384,31 @@
         }
       })
 
+
+      document.querySelector('#archive-list').addEventListener('click', (event) => {
+        const button = event.target.closest('[data-delete-task]')
+        if (!button) return
+        const record = tasks.find((task) => task.id === Number(button.dataset.deleteTask))
+        pendingDeletion = { type: 'task', id: record.id }
+        document.querySelector('#delete-record-name').textContent = record.title
+        deleteDialog.hidden = false
+      })
+      document.querySelector('#inventory-archive-list').addEventListener('click', (event) => {
+        const button = event.target.closest('[data-delete-inventory]')
+        if (!button) return
+        const record = inventory.find((item) => item.id === Number(button.dataset.deleteInventory))
+        pendingDeletion = { type: 'inventory', id: record.id }
+        document.querySelector('#delete-record-name').textContent = record.name
+        deleteDialog.hidden = false
+      })
+      document.querySelector('#cancel-delete').addEventListener('click', () => { pendingDeletion = null; deleteDialog.hidden = true })
+      document.querySelector('#confirm-delete').addEventListener('click', () => {
+        if (pendingDeletion?.type === 'task') tasks = tasks.filter((task) => task.id !== pendingDeletion.id)
+        if (pendingDeletion?.type === 'inventory') inventory = inventory.filter((record) => record.id !== pendingDeletion.id)
+        pendingDeletion = null
+        deleteDialog.hidden = true
+        updatePage()
+      })
       document.querySelector('#cancel-edit').addEventListener('click', resetForm)
       userSelect.addEventListener('change', () => {
         requestedUser = userSelect.value

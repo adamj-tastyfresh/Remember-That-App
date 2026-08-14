@@ -1,6 +1,9 @@
-import { fetchServerInventory, InventoryApiError, pushInventory } from '../api/inventoryApi.ts'
+import { deleteLocalAttachmentsForParents } from '../data/attachmentRepository.ts'
+import { deleteInventoryOnServer, fetchServerInventory, InventoryApiError, pushInventory } from '../api/inventoryApi.ts'
 import {
+  applyServerInventoryDeletions,
   completeInventorySync,
+  completePermanentInventoryDeletion,
   failInventorySync,
   listQueuedInventory,
   markInventoryConflict,
@@ -21,11 +24,22 @@ export async function synchroniseInventory(): Promise<SyncSummary> {
     }
     await setInventorySyncStatus(item.inventoryId, 'Synchronising')
     try {
-      await completeInventorySync(item, await pushInventory(item))
+      if ((item.action ?? 'upsert') === 'delete') {
+        await deleteInventoryOnServer(item)
+        await completePermanentInventoryDeletion(item)
+        await deleteLocalAttachmentsForParents([item.inventoryId])
+      } else {
+        await completeInventorySync(item, await pushInventory(item))
+      }
       summary.synced += 1
       summary.serverReached = true
     } catch (error) {
-      if (error instanceof InventoryApiError && error.code === 'CONFLICT' && error.serverRecord) {
+      if (error instanceof InventoryApiError && error.code === 'RECORD_DELETED') {
+        await completePermanentInventoryDeletion(item)
+        await deleteLocalAttachmentsForParents([item.inventoryId])
+        summary.synced += 1
+        summary.serverReached = true
+      } else if (error instanceof InventoryApiError && error.code === 'CONFLICT' && error.serverRecord) {
         await markInventoryConflict(item, error.serverRecord)
         summary.conflicts += 1
         summary.serverReached = true
@@ -39,7 +53,10 @@ export async function synchroniseInventory(): Promise<SyncSummary> {
   }
 
   try {
-    await mergeServerInventory(await fetchServerInventory())
+    const server = await fetchServerInventory()
+    await mergeServerInventory(server.records)
+    await applyServerInventoryDeletions(server.deletedIds)
+    await deleteLocalAttachmentsForParents(server.deletedIds)
     summary.serverReached = true
   } catch {
     // Local inventory and queued operations remain available for retry.
