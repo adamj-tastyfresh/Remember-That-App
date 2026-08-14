@@ -724,8 +724,8 @@ When developing Remember That:
 
 # Project Status
 
-Remember That is currently in the design and planning stage.
+Remember That is in active milestone development. The responsive PWA shell, persistent user selection, offline task diary, offline inventory tracking, synchronisation foundation, and offline global search are implemented.
 
-The application architecture, database schema, API design, detailed user interface, deployment process, and final Version 1 feature set will be refined before production development begins.
+Attachments, permanent deletion, conflict-resolution controls, and deployment remain future milestones.
 
 This README should be updated whenever an approved project decision changes the expected behaviour or architecture of the application.

@@ -14,6 +14,9 @@ The frontend now includes:
 - Inventory creation, location editing, and archiving
 - Creator-only edit and archive controls for both record types
 - A combined retained Archives view
+- Offline global search across active tasks and inventory
+- Case-insensitive partial-word matching across content, locations, and creators
+- Clearly labelled task and inventory search results; archived records stay excluded
 - Persistent task and inventory synchronization queues with visible states
 - Automatic sync on app open, reconnect, foreground return, and local changes
 - Manual retry, last-successful-sync time, and retained conflict copies

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { InventoryForm } from './components/InventoryForm.tsx'
 import { InventoryList } from './components/InventoryList.tsx'
+import { SearchView } from './components/SearchView.tsx'
 import { SyncStatusBar, SYNC_REQUEST_EVENT } from './components/SyncStatusBar.tsx'
 import { TaskForm } from './components/TaskForm.tsx'
 import { TaskList } from './components/TaskList.tsx'
@@ -25,7 +26,7 @@ import {
 } from './domain/task.ts'
 import './App.css'
 
-type AppView = 'home' | 'tasks' | 'inventory' | 'archives'
+type AppView = 'home' | 'tasks' | 'inventory' | 'search' | 'archives'
 const USER_STORAGE_KEY = 'remember-that.current-user-id'
 
 function getStoredUser(): User | null {
@@ -221,7 +222,7 @@ function App() {
           <button className={'nav-item ' + (view === 'home' ? 'active' : '')} type="button" onClick={() => changeView('home')}><span aria-hidden="true">⌂</span> Home</button>
           <button className={'nav-item ' + (view === 'tasks' ? 'active' : '')} type="button" onClick={() => changeView('tasks')}><span aria-hidden="true">✓</span> Tasks</button>
           <button className={'nav-item ' + (view === 'inventory' ? 'active' : '')} type="button" onClick={() => changeView('inventory')}><span aria-hidden="true">□</span> Inventory</button>
-          <span className="nav-item muted"><span aria-hidden="true">⌕</span> Search</span>
+          <button className={'nav-item ' + (view === 'search' ? 'active' : '')} type="button" onClick={() => changeView('search')}><span aria-hidden="true">⌕</span> Search</button>
           <button className={'nav-item ' + (view === 'archives' ? 'active' : '')} type="button" onClick={() => changeView('archives')}><span aria-hidden="true">▱</span> Archives</button>
         </nav>
         <p className="sidebar-status"><span aria-hidden="true"></span> Stored locally</p>
@@ -295,6 +296,15 @@ function App() {
             </div>
           )}
 
+          {view === 'search' && (
+            <SearchView
+              tasks={tasks}
+              inventory={inventory}
+              loading={loadingRecords}
+              onOpenTask={() => changeView('tasks')}
+              onOpenInventory={() => changeView('inventory')}
+            />
+          )}
           {view === 'archives' && (
             <section className="archive-view wide-archive" aria-labelledby="archive-heading">
               <div className="page-heading"><p className="eyebrow">Retained history</p><h1 id="archive-heading">Archives</h1><p>Archived tasks and inventory remain stored and retain their original creator.</p></div>
@@ -316,6 +326,7 @@ function App() {
           <button className={view === 'home' ? 'active' : ''} type="button" onClick={() => changeView('home')}><span aria-hidden="true">⌂</span>Home</button>
           <button className={view === 'tasks' ? 'active' : ''} type="button" onClick={() => changeView('tasks')}><span aria-hidden="true">✓</span>Tasks</button>
           <button className={view === 'inventory' ? 'active' : ''} type="button" onClick={() => changeView('inventory')}><span aria-hidden="true">□</span>Inventory</button>
+          <button className={view === 'search' ? 'active' : ''} type="button" onClick={() => changeView('search')}><span aria-hidden="true">⌕</span>Search</button>
           <button className={view === 'archives' ? 'active' : ''} type="button" onClick={() => changeView('archives')}><span aria-hidden="true">▱</span>Archives</button>
         </nav>
       </div>

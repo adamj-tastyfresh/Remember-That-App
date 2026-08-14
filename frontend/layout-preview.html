@@ -42,7 +42,7 @@
           <button class="nav-item active" data-view="home" type="button"><span aria-hidden="true">⌂</span> Home</button>
           <button class="nav-item" data-view="tasks" type="button"><span aria-hidden="true">✓</span> Tasks</button>
           <button class="nav-item" data-view="inventory" type="button"><span aria-hidden="true">□</span> Inventory</button>
-          <span class="nav-item muted"><span aria-hidden="true">⌕</span> Search</span>
+          <button class="nav-item" data-view="search" type="button"><span aria-hidden="true">⌕</span> Search</button>
           <button class="nav-item" data-view="archives" type="button"><span aria-hidden="true">▱</span> Archives</button>
         </nav>
         <p class="sidebar-status"><span aria-hidden="true"></span> Stored locally</p>
@@ -111,6 +111,12 @@
             </section>
           </div>
 
+          <section class="search-view" id="search-view" aria-labelledby="search-heading" hidden>
+            <div class="page-heading search-heading"><p class="eyebrow">Stored on this device</p><h1 id="search-heading">Search everything</h1><p>Find active tasks and inventory, even while offline.</p></div>
+            <label class="search-box" for="global-search"><span aria-hidden="true">⌕</span><input id="global-search" type="search" placeholder="Search tasks, items, locations, or creators…" autocomplete="off" /><button id="clear-search" type="button" aria-label="Clear search" hidden>×</button></label>
+            <div class="search-summary" id="search-summary" aria-live="polite">Type part of a word to begin</div>
+            <div id="search-results"><div class="empty-state search-empty"><span aria-hidden="true">⌕</span><h3>Search your local records</h3><p>Try “File” for FileMaker or “charg” for charger.</p></div></div>
+          </section>
           <section class="archive-view wide-archive" id="archives-view" aria-labelledby="archive-heading" hidden>
             <div class="page-heading"><p class="eyebrow">Retained history</p><h1 id="archive-heading">Archives</h1><p>Archived tasks and inventory remain stored and retain their original creator.</p></div>
             <div class="archive-sections">
@@ -124,6 +130,7 @@
           <button class="active" data-view="home" type="button"><span aria-hidden="true">⌂</span>Home</button>
           <button data-view="tasks" type="button"><span aria-hidden="true">✓</span>Tasks</button>
           <button data-view="inventory" type="button"><span aria-hidden="true">□</span>Inventory</button>
+          <button data-view="search" type="button"><span aria-hidden="true">⌕</span>Search</button>
           <button data-view="archives" type="button"><span aria-hidden="true">▱</span>Archives</button>
         </nav>
       </div>
@@ -171,6 +178,8 @@
       const switchDialog = document.querySelector('#switch-dialog')
       const togglePreview = document.querySelector('#toggle-preview')
       const syncNow = document.querySelector('#sync-now')
+      const globalSearch = document.querySelector('#global-search')
+      const clearSearch = document.querySelector('#clear-search')
 
       function escapeHtml(value) {
         return value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character])
@@ -206,6 +215,32 @@
           return '<article class="inventory-card"><div class="inventory-icon" aria-hidden="true">□</div><div class="inventory-card-body"><div class="task-card-topline"><span class="sync-badge waiting"><span></span>Waiting to Sync</span><span class="task-date">' + record.created + '</span></div><h3>' + escapeHtml(record.name) + '</h3><p class="inventory-location"><span aria-hidden="true">⌖</span>' + escapeHtml(record.location) + '</p><footer><span>Created by <strong>' + record.creator + '</strong></span>' + actions + '</footer></div></article>'
         }).join('')
       }
+      function renderSearch() {
+        const query = globalSearch.value.trim().toLowerCase()
+        const target = document.querySelector('#search-results')
+        clearSearch.hidden = !globalSearch.value
+        if (!query) {
+          document.querySelector('#search-summary').textContent = 'Type part of a word to begin'
+          target.innerHTML = '<div class="empty-state search-empty"><span aria-hidden="true">⌕</span><h3>Search your local records</h3><p>Try “File” for FileMaker or “charg” for charger.</p></div>'
+          return
+        }
+        const results = [
+          ...tasks.filter((task) => !task.archived && [task.title, task.description, task.creator].some((value) => value.toLowerCase().includes(query))).map((record) => ({ type: 'task', record })),
+          ...inventory.filter((record) => !record.archived && [record.name, record.location, record.creator].some((value) => value.toLowerCase().includes(query))).map((record) => ({ type: 'inventory', record })),
+        ]
+        document.querySelector('#search-summary').textContent = results.length + (results.length === 1 ? ' result' : ' results')
+        if (!results.length) {
+          target.innerHTML = '<div class="empty-state search-empty"><span aria-hidden="true">⌕</span><h3>No active records found</h3><p>Check the spelling or try a shorter part of the word.</p></div>'
+          return
+        }
+        target.innerHTML = '<div class="search-results">' + results.map((result) => {
+          const task = result.type === 'task'
+          const title = task ? result.record.title : result.record.name
+          const detail = task ? result.record.description : result.record.location
+          return '<button class="search-result-card" type="button" data-view="' + (task ? 'tasks' : 'inventory') + '"><span class="result-type ' + result.type + '">' + (task ? 'Task' : 'Inventory') + '</span><div class="search-result-content"><h2>' + escapeHtml(title) + '</h2><p>' + escapeHtml(detail) + '</p><small>Created by <strong>' + result.record.creator + '</strong> · ' + result.record.created + '</small></div><span class="result-arrow" aria-hidden="true">›</span></button>'
+        }).join('') + '</div>'
+        target.querySelectorAll('[data-view]').forEach((button) => button.addEventListener('click', () => changeView(button.dataset.view)))
+      }
       function updatePage() {
         const active = tasks.filter((task) => !task.archived)
         const archived = tasks.filter((task) => task.archived)
@@ -224,12 +259,14 @@
         renderTaskList('#archive-list', true)
         renderInventoryList('#inventory-list', false)
         renderInventoryList('#inventory-archive-list', true)
+        renderSearch()
       }
 
       function changeView(view) {
         document.querySelector('#home-view').hidden = view !== 'home'
         document.querySelector('#tasks-view').hidden = view !== 'tasks'
         document.querySelector('#inventory-view').hidden = view !== 'inventory'
+        document.querySelector('#search-view').hidden = view !== 'search'
         document.querySelector('#archives-view').hidden = view !== 'archives'
         document.querySelectorAll('[data-view]').forEach((button) => button.classList.toggle('active', button.dataset.view === view))
         window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -361,6 +398,8 @@
         }
       })
 
+      globalSearch.addEventListener('input', renderSearch)
+      clearSearch.addEventListener('click', () => { globalSearch.value = ''; renderSearch(); globalSearch.focus() })
       syncNow.addEventListener('click', () => {
         syncNow.disabled = true
         syncNow.textContent = 'Syncing…'
