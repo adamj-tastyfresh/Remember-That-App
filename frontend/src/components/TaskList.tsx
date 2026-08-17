@@ -1,3 +1,4 @@
+import { AttachmentControls } from './AttachmentControls.tsx'
 import { AttachmentList } from './AttachmentList.tsx'
 import type { LocalAttachmentRecord } from '../domain/attachment.ts'
 import type { User } from '../data/users.ts'
@@ -11,6 +12,8 @@ type TaskListProps = {
   onEdit?: (task: TaskRecord) => void
   onArchive?: (task: TaskRecord) => void
   onDelete?: (task: TaskRecord) => void
+  savingAttachmentIds?: ReadonlySet<string>
+  onAttach?: (task: TaskRecord, files: readonly File[]) => Promise<void>
 }
 
 function formatDate(date: string): string {
@@ -24,7 +27,7 @@ function syncClass(task: TaskRecord): string {
   return 'sync-badge ' + task.syncStatus.toLowerCase().replaceAll(' ', '-')
 }
 
-export function TaskList({ tasks, attachments = [], currentUser, archived = false, onEdit, onArchive, onDelete }: TaskListProps) {
+export function TaskList({ tasks, attachments = [], currentUser, archived = false, onEdit, onArchive, onDelete, savingAttachmentIds = new Set(), onAttach }: TaskListProps) {
   if (tasks.length === 0) {
     return (
       <div className="empty-state">
@@ -51,6 +54,9 @@ export function TaskList({ tasks, attachments = [], currentUser, archived = fals
             <h3>{task.title}</h3>
             <p className="task-description">{task.description}</p>
             <AttachmentList attachments={attachments.filter((attachment) => attachment.parentRecordType === 'task' && attachment.parentRecordId === task.id)} />
+            {!archived && isCreator && onAttach && (
+              <AttachmentControls recordName={task.title} saving={savingAttachmentIds.has(task.id)} onSelect={(files) => onAttach(task, files)} />
+            )}
             {task.syncError && <p className="sync-error">{task.syncError}</p>}
             {task.conflictServerTask && (
               <div className="conflict-comparison">

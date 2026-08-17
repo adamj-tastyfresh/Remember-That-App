@@ -62,21 +62,30 @@ export async function listAttachments(): Promise<LocalAttachmentRecord[]> {
 }
 
 export async function saveLocalAttachment(attachment: LocalAttachmentRecord): Promise<void> {
+  await saveLocalAttachments([attachment])
+}
+
+export async function saveLocalAttachments(attachments: readonly LocalAttachmentRecord[]): Promise<void> {
+  if (attachments.length === 0) return
   const database = await openDatabase()
   try {
     const transaction = database.transaction([ATTACHMENT_STORE, SYNC_STORE], 'readwrite')
-    const queueItem: AttachmentSyncQueueItem = {
-      attachmentId: attachment.id,
-      operationId: crypto.randomUUID(),
-      actingUserId: attachment.uploadedById,
-      attachment,
-      createdAt: new Date().toISOString(),
-      attempts: 0,
-      lastAttemptAt: null,
-      lastError: null,
+    const attachmentStore = transaction.objectStore(ATTACHMENT_STORE)
+    const queueStore = transaction.objectStore(SYNC_STORE)
+    for (const attachment of attachments) {
+      const queueItem: AttachmentSyncQueueItem = {
+        attachmentId: attachment.id,
+        operationId: crypto.randomUUID(),
+        actingUserId: attachment.uploadedById,
+        attachment,
+        createdAt: new Date().toISOString(),
+        attempts: 0,
+        lastAttemptAt: null,
+        lastError: null,
+      }
+      attachmentStore.put(attachment)
+      queueStore.put(queueItem)
     }
-    transaction.objectStore(ATTACHMENT_STORE).put(attachment)
-    transaction.objectStore(SYNC_STORE).put(queueItem)
     await finished(transaction)
   } finally {
     database.close()

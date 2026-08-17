@@ -1,3 +1,4 @@
+import { AttachmentControls } from './AttachmentControls.tsx'
 import { AttachmentList } from './AttachmentList.tsx'
 import type { LocalAttachmentRecord } from '../domain/attachment.ts'
 import type { User } from '../data/users.ts'
@@ -11,13 +12,15 @@ type InventoryListProps = {
   onEdit?: (record: InventoryRecord) => void
   onArchive?: (record: InventoryRecord) => void
   onDelete?: (record: InventoryRecord) => void
+  savingAttachmentIds?: ReadonlySet<string>
+  onAttach?: (record: InventoryRecord, files: readonly File[]) => Promise<void>
 }
 
 function formatDate(date: string): string {
   return new Intl.DateTimeFormat('en-AU', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(date))
 }
 
-export function InventoryList({ records, attachments = [], currentUser, archived = false, onEdit, onArchive, onDelete }: InventoryListProps) {
+export function InventoryList({ records, attachments = [], currentUser, archived = false, onEdit, onArchive, onDelete, savingAttachmentIds = new Set(), onAttach }: InventoryListProps) {
   if (records.length === 0) {
     return (
       <div className="empty-state">
@@ -44,6 +47,9 @@ export function InventoryList({ records, attachments = [], currentUser, archived
               <h3>{record.itemName}</h3>
               <p className="inventory-location"><span aria-hidden="true">⌖</span>{record.itemLocation}</p>
               <AttachmentList attachments={attachments.filter((attachment) => attachment.parentRecordType === 'inventory' && attachment.parentRecordId === record.id)} />
+              {!archived && isCreator && onAttach && (
+                <AttachmentControls recordName={record.itemName} saving={savingAttachmentIds.has(record.id)} onSelect={(files) => onAttach(record, files)} />
+              )}
               {record.syncError && <p className="sync-error">{record.syncError}</p>}
               {record.conflictServerRecord && (
                 <div className="conflict-comparison">

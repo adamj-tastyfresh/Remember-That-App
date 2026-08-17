@@ -17,6 +17,7 @@ The frontend now includes:
 - Creator-only permanent deletion from Archives with explicit confirmation
 - Offline deletion tombstones that remove cached copies across devices
 - IndexedDB attachment metadata, Blob storage, and persistent upload queues
+- Creator-only multi-file selection and supported-device camera capture on active records
 - Safe filename, configurable size, and configurable MIME-type validation foundations
 - Record-level display for locally cached attachment metadata
 - Offline global search across active tasks and inventory
@@ -65,6 +66,8 @@ The production build includes the configured PWA service worker and web app
 manifest.
 
 
-## Attachment foundation
+## Attachment controls and storage boundary
 
-The attachment foundation stores files safely offline and keeps them queued, but file/camera selection and transfer to the approved internal file store are separate milestones. No attachment is marked uploaded until that future storage integration confirms it.
+Creators can select multiple files or capture a photo for their active task and inventory records. Selected images, PDFs, Word documents, and plain-text files are validated and stored offline with their metadata and durable queue entry in one IndexedDB transaction.
+
+No company-approved maximum file size has been supplied, so the frontend does not invent one; browser quota failures are reported without discarding existing queued data. Transfer remains disabled until the approved internal file store and server-side size policy are configured. No attachment is marked uploaded before that storage integration confirms it.

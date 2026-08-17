@@ -5,8 +5,9 @@ import { SearchView } from './components/SearchView.tsx'
 import { SyncStatusBar, SYNC_REQUEST_EVENT } from './components/SyncStatusBar.tsx'
 import { TaskForm } from './components/TaskForm.tsx'
 import { TaskList } from './components/TaskList.tsx'
-import { listAttachments } from './data/attachmentRepository.ts'
-import type { LocalAttachmentRecord } from './domain/attachment.ts'
+import { LOCAL_ATTACHMENT_POLICY } from './config/attachmentPolicy.ts'
+import { listAttachments, saveLocalAttachments } from './data/attachmentRepository.ts'
+import { createLocalAttachment, type AttachmentParentType, type LocalAttachmentRecord } from './domain/attachment.ts'
 import { listInventory, queuePermanentInventoryDeletion, saveInventoryRecord } from './data/inventoryRepository.ts'
 import { listTasks, queuePermanentTaskDeletion, saveTask } from './data/taskRepository.ts'
 import { findUser, USERS, type User } from './data/users.ts'
@@ -53,6 +54,7 @@ function App() {
   const [loadingRecords, setLoadingRecords] = useState(true)
   const [savingTask, setSavingTask] = useState(false)
   const [savingInventory, setSavingInventory] = useState(false)
+  const [savingAttachmentParents, setSavingAttachmentParents] = useState<ReadonlySet<string>>(new Set())
   const [storageError, setStorageError] = useState('')
 
   useEffect(() => {
@@ -90,6 +92,7 @@ function App() {
     if (currentUser && (
       hasUnsynchronisedTasks(tasks, currentUser.id)
       || hasUnsynchronisedInventory(inventory, currentUser.id)
+      || attachments.some((attachment) => attachment.uploadedById === currentUser.id && attachment.syncStatus !== 'Synced')
     )) {
       setPendingUser(user)
       return
@@ -128,6 +131,36 @@ function App() {
       return false
     } finally {
       setSavingInventory(false)
+    }
+  }
+
+  const handleAttachFiles = async (parentRecordId: string, parentRecordType: AttachmentParentType, files: readonly File[]) => {
+    if (!currentUser || files.length === 0) return
+    const parent = parentRecordType === 'task'
+      ? tasks.find((task) => task.id === parentRecordId)
+      : inventory.find((record) => record.id === parentRecordId)
+    if (!parent || parent.creatorId !== currentUser.id || parent.archived || parent.pendingPermanentDeletion) {
+      throw new Error('Only the creator can attach files to an active record.')
+    }
+
+    setSavingAttachmentParents((existing) => new Set(existing).add(parentRecordId))
+    try {
+      const selectedAttachments = files.map((file) => createLocalAttachment({
+        parentRecordId,
+        parentRecordType,
+        originalFilename: file.name,
+        fileType: file.type,
+        localBlob: file,
+      }, currentUser, LOCAL_ATTACHMENT_POLICY))
+      await saveLocalAttachments(selectedAttachments)
+      setAttachments((existing) => [...selectedAttachments, ...existing]
+        .sort((left, right) => right.deviceCreatedAt.localeCompare(left.deviceCreatedAt)))
+    } finally {
+      setSavingAttachmentParents((existing) => {
+        const next = new Set(existing)
+        next.delete(parentRecordId)
+        return next
+      })
     }
   }
 
@@ -314,7 +347,7 @@ function App() {
               <TaskForm editingTask={editingTask} saving={savingTask} onCancel={() => setEditingTask(null)} onSave={handleSaveTask} />
               <section className="task-feed" aria-labelledby="task-list-heading">
                 <div className="section-heading compact"><div><p className="eyebrow">Shared diary</p><h1 id="task-list-heading">Active tasks</h1></div><span className="task-count">{activeTasks.length}</span></div>
-                {loadingRecords ? <p className="loading-state">Loading tasks from this device…</p> : <TaskList tasks={activeTasks} attachments={attachments} currentUser={currentUser} onEdit={setEditingTask} onArchive={(task) => void handleArchiveTask(task)} />}
+                {loadingRecords ? <p className="loading-state">Loading tasks from this device…</p> : <TaskList tasks={activeTasks} attachments={attachments} currentUser={currentUser} savingAttachmentIds={savingAttachmentParents} onAttach={(task, files) => handleAttachFiles(task.id, 'task', files)} onEdit={setEditingTask} onArchive={(task) => void handleArchiveTask(task)} />}
               </section>
             </div>
           )}
@@ -324,7 +357,7 @@ function App() {
               <InventoryForm editingRecord={editingInventory} saving={savingInventory} onCancel={() => setEditingInventory(null)} onSave={handleSaveInventory} />
               <section className="task-feed" aria-labelledby="inventory-list-heading">
                 <div className="section-heading compact"><div><p className="eyebrow">Item locations</p><h1 id="inventory-list-heading">Inventory</h1></div><span className="task-count inventory-count">{activeInventory.length}</span></div>
-                {loadingRecords ? <p className="loading-state">Loading inventory from this device…</p> : <InventoryList records={activeInventory} attachments={attachments} currentUser={currentUser} onEdit={setEditingInventory} onArchive={(record) => void handleArchiveInventory(record)} />}
+                {loadingRecords ? <p className="loading-state">Loading inventory from this device…</p> : <InventoryList records={activeInventory} attachments={attachments} currentUser={currentUser} savingAttachmentIds={savingAttachmentParents} onAttach={(record, files) => handleAttachFiles(record.id, 'inventory', files)} onEdit={setEditingInventory} onArchive={(record) => void handleArchiveInventory(record)} />}
               </section>
             </div>
           )}

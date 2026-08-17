@@ -14,7 +14,7 @@ export function AttachmentList({ attachments }: AttachmentListProps) {
   if (attachments.length === 0) return null
   return (
     <section className="attachment-summary" aria-label="Attachments">
-      <strong><span aria-hidden="true">⌕</span>{attachments.length} {attachments.length === 1 ? 'attachment' : 'attachments'}</strong>
+      <strong><span aria-hidden="true">📎</span>{attachments.length} {attachments.length === 1 ? 'attachment' : 'attachments'}</strong>
       <ul>
         {attachments.map((attachment) => (
           <li key={attachment.id}>

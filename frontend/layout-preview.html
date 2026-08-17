@@ -197,7 +197,28 @@
 
       function renderAttachmentSummary(record) {
         if (!record.attachments?.length) return ''
-        return '<section class="attachment-summary"><strong><span aria-hidden="true">⌕</span>' + record.attachments.length + ' attachment</strong><ul>' + record.attachments.map((attachment) => '<li><span class="attachment-name">' + escapeHtml(attachment.name) + '</span><span>' + attachment.size + ' · ' + attachment.status + '</span></li>').join('') + '</ul></section>'
+        const label = record.attachments.length === 1 ? ' attachment' : ' attachments'
+        return '<section class="attachment-summary"><strong><span aria-hidden="true">📎</span>' + record.attachments.length + label + '</strong><ul>' + record.attachments.map((attachment) => '<li><span class="attachment-name">' + escapeHtml(attachment.name) + '</span><span>' + attachment.size + ' · ' + attachment.status + '</span></li>').join('') + '</ul></section>'
+      }
+      function renderAttachmentControls(record, archived, type) {
+        if (archived || record.creator !== currentUser) return ''
+        const id = type + '-' + record.id
+        const accept = 'image/jpeg,image/png,image/heic,image/heif,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain'
+        return '<section class="attachment-controls" aria-label="Add attachments"><div class="attachment-buttons"><label class="attachment-button" for="file-' + id + '"><span aria-hidden="true">+</span>Attach file</label><input class="visually-hidden" id="file-' + id + '" type="file" accept="' + accept + '" multiple data-attachment-type="' + type + '" data-attachment-id="' + record.id + '"><label class="attachment-button camera" for="camera-' + id + '"><span aria-hidden="true">◉</span>Take photo</label><input class="visually-hidden" id="camera-' + id + '" type="file" accept="image/*" capture="environment" data-attachment-type="' + type + '" data-attachment-id="' + record.id + '"></div><small>Stored on this device until internal upload is configured.</small></section>'
+      }
+      function formatPreviewFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B'
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+      }
+      function addPreviewAttachments(event) {
+        const input = event.target.closest('[data-attachment-type]')
+        if (!input?.files?.length) return
+        const collection = input.dataset.attachmentType === 'task' ? tasks : inventory
+        const record = collection.find((item) => item.id === Number(input.dataset.attachmentId))
+        if (!record || record.creator !== currentUser || record.archived) return
+        record.attachments = [...Array.from(input.files).map((file) => ({ name: file.name, size: formatPreviewFileSize(file.size), status: 'Waiting to Sync' })), ...(record.attachments || [])]
+        updatePage()
       }
       function renderTaskList(targetId, archived) {
         const target = document.querySelector(targetId)
@@ -211,7 +232,7 @@
           const actions = !archived && task.creator === currentUser
             ? '<div class="task-actions"><button type="button" data-edit="' + task.id + '">Edit</button><button class="archive-button" type="button" data-archive="' + task.id + '">Archive</button></div>'
             : !archived ? '<span class="owner-note">View only</span>' : task.creator === currentUser ? '<button class="permanent-delete-button" type="button" data-delete-task="' + task.id + '">Delete permanently</button>' : ''
-          return '<article class="task-card"><div class="task-card-topline"><span class="sync-badge waiting"><span></span>Waiting to Sync</span><span class="task-date">' + task.created + '</span></div><h3>' + escapeHtml(task.title) + '</h3><p class="task-description">' + escapeHtml(task.description) + '</p>' + renderAttachmentSummary(task) + '<footer><span>Created by <strong>' + task.creator + '</strong></span>' + actions + '</footer></article>'
+          return '<article class="task-card"><div class="task-card-topline"><span class="sync-badge waiting"><span></span>Waiting to Sync</span><span class="task-date">' + task.created + '</span></div><h3>' + escapeHtml(task.title) + '</h3><p class="task-description">' + escapeHtml(task.description) + '</p>' + renderAttachmentSummary(task) + renderAttachmentControls(task, archived, 'task') + '<footer><span>Created by <strong>' + task.creator + '</strong></span>' + actions + '</footer></article>'
         }).join('')
       }
 
@@ -226,7 +247,7 @@
           const actions = !archived && record.creator === currentUser
             ? '<div class="task-actions"><button type="button" data-inventory-edit="' + record.id + '">Edit</button><button class="archive-button" type="button" data-inventory-archive="' + record.id + '">Archive</button></div>'
             : !archived ? '<span class="owner-note">View only</span>' : record.creator === currentUser ? '<button class="permanent-delete-button" type="button" data-delete-inventory="' + record.id + '">Delete permanently</button>' : ''
-          return '<article class="inventory-card"><div class="inventory-icon" aria-hidden="true">□</div><div class="inventory-card-body"><div class="task-card-topline"><span class="sync-badge waiting"><span></span>Waiting to Sync</span><span class="task-date">' + record.created + '</span></div><h3>' + escapeHtml(record.name) + '</h3><p class="inventory-location"><span aria-hidden="true">⌖</span>' + escapeHtml(record.location) + '</p>' + renderAttachmentSummary(record) + '<footer><span>Created by <strong>' + record.creator + '</strong></span>' + actions + '</footer></div></article>'
+          return '<article class="inventory-card"><div class="inventory-icon" aria-hidden="true">□</div><div class="inventory-card-body"><div class="task-card-topline"><span class="sync-badge waiting"><span></span>Waiting to Sync</span><span class="task-date">' + record.created + '</span></div><h3>' + escapeHtml(record.name) + '</h3><p class="inventory-location"><span aria-hidden="true">⌖</span>' + escapeHtml(record.location) + '</p>' + renderAttachmentSummary(record) + renderAttachmentControls(record, archived, 'inventory') + '<footer><span>Created by <strong>' + record.creator + '</strong></span>' + actions + '</footer></div></article>'
         }).join('')
       }
       function renderSearch() {
@@ -260,7 +281,8 @@
         const archived = tasks.filter((task) => task.archived)
         const activeInventory = inventory.filter((record) => !record.archived)
         const archivedInventory = inventory.filter((record) => record.archived)
-        const pending = tasks.filter((task) => task.creator === currentUser).length + inventory.filter((record) => record.creator === currentUser).length
+        const pendingAttachments = [...tasks, ...inventory].filter((record) => record.creator === currentUser).flatMap((record) => record.attachments || []).filter((attachment) => attachment.status !== 'Synced').length
+        const pending = tasks.filter((task) => task.creator === currentUser).length + inventory.filter((record) => record.creator === currentUser).length + pendingAttachments
         document.querySelectorAll('.welcome-name').forEach((element) => { element.textContent = currentUser })
         document.querySelector('#active-count').textContent = active.length
         document.querySelector('#inventory-count').textContent = activeInventory.length
@@ -363,6 +385,8 @@
       })
 
       document.querySelector('#cancel-inventory-edit').addEventListener('click', resetInventoryForm)
+      document.querySelector('#task-list').addEventListener('change', addPreviewAttachments)
+      document.querySelector('#inventory-list').addEventListener('change', addPreviewAttachments)
       document.querySelector('#task-list').addEventListener('click', (event) => {
         const editButton = event.target.closest('[data-edit]')
         const archiveButton = event.target.closest('[data-archive]')
