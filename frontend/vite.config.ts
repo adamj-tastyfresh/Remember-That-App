@@ -7,14 +7,14 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['favicon.svg'],
       manifest: {
         name: 'Remember That',
         short_name: 'Remember That',
         description: 'Shared IT task diary and inventory location tracker for Tasty Fresh IT.',
-        theme_color: '#1f2937',
-        background_color: '#ffffff',
+        theme_color: '#c31d37',
+        background_color: '#faf0d7',
         display: 'standalone',
         start_url: '/',
         icons: [
@@ -32,7 +32,7 @@ export default defineConfig({
       },
       workbox: {
         // Cache the app shell only; API responses are handled by the sync layer, not the service worker.
-        globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
       },
     }),
   ],

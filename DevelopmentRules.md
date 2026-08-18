@@ -1,5 +1,7 @@
 # Remember That — Coding Rules
 
+Documentation precedence and company-standard overrides are defined in `DocumentationPolicy.md`. Project-specific requirements remain authoritative when a general company reference differs.
+
 ## 1. General Development Principles
 
 1. Keep the application simple, maintainable, and easy for a beginner developer to understand.
@@ -329,6 +331,11 @@ Internal Storage Reference
 18. Avoid relying on hover-only controls.
 19. Ensure forms work with iOS keyboards and mobile screen sizes.
 20. Keep the interface responsive without building separate desktop and mobile applications.
+21. Follow the approved Tasty Fresh digital palette: red and cream primary, with navy, light blue, orange, and brown as support colours.
+22. Use locally bundled Barlow for the web interface and Barlow Condensed for interface headings.
+23. Do not load production fonts, branding, or UI assets from a public CDN.
+24. Do not recreate or alter the official Tasty Fresh logo; use only an approved supplied asset.
+25. Keep user-entered task and inventory content in its original case even when interface headings are uppercase.
 
 ## 16. Security Rules
 
@@ -483,6 +490,9 @@ docs: update offline sync rules
 11. Update the app specification when requirements change.
 12. Do not leave obsolete instructions in the documentation.
 13. Add troubleshooting notes for common development and sync failures.
+14. Keep `DocumentationPolicy.md`, `Architecture.md`, and `Operations.md` current.
+15. Distinguish local implementation, internal integration verification, and production readiness.
+16. Treat company-wide infrastructure and SQL documents as contextual unless explicitly adopted for this project.
 
 ## 23. Feature Scope Rules
 

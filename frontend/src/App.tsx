@@ -5,6 +5,7 @@ import { SearchView } from './components/SearchView.tsx'
 import { SyncStatusBar, SYNC_REQUEST_EVENT } from './components/SyncStatusBar.tsx'
 import { TaskForm } from './components/TaskForm.tsx'
 import { TaskList } from './components/TaskList.tsx'
+import { UpdatePrompt } from './components/UpdatePrompt.tsx'
 import { LOCAL_ATTACHMENT_POLICY } from './config/attachmentPolicy.ts'
 import { listAttachments, saveLocalAttachments } from './data/attachmentRepository.ts'
 import { createLocalAttachment, type AttachmentParentType, type LocalAttachmentRecord } from './domain/attachment.ts'
@@ -387,6 +388,8 @@ function App() {
             </section>
           )}
         </main>
+
+        <UpdatePrompt pendingCount={pendingCount} />
 
         <nav className="mobile-nav" aria-label="Mobile navigation">
           <button className={view === 'home' ? 'active' : ''} type="button" onClick={() => changeView('home')}><span aria-hidden="true">⌂</span>Home</button>

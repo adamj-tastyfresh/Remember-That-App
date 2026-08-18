@@ -47,6 +47,8 @@ The API enforces creator-only edits, archives, and permanent deletions for tasks
 
 Run `npm install` followed by `npm run dev` from PowerShell in the backend directory.
 
+A production artifact is built with `npm run build` and started with `npm start`. Service hosting, reverse proxy, HTTPS termination, and deployment paths require approved internal infrastructure details; see `../Operations.md`.
+
 ## Checks
 
 Run `npm test` and `npm run build`.

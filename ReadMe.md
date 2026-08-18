@@ -722,10 +722,23 @@ When developing Remember That:
 
 ---
 
+# Project Documentation
+
+- `DevelopmentRules.md` — binding coding and scope rules
+- `DocumentationPolicy.md` — source priority and company-standard overrides
+- `Architecture.md` — screens, startup, state, API, PWA, and known limitations
+- `Synchronisation.md` — offline queues, merge behavior, and API response states
+- `Operations.md` — setup, release gates, deployment prerequisites, rollback, and troubleshooting
+- `frontend/README.md` and `backend/README.md` — component-specific setup and behavior
+
+Company-wide infrastructure, regional database, and API references are contextual unless `DocumentationPolicy.md` explicitly adopts them.
+
+---
+
 # Project Status
 
-Remember That is in active milestone development. The responsive PWA shell, persistent user selection, offline task diary, offline inventory tracking, synchronisation foundation, offline global search, permanent deletion, offline attachment foundation, and file/camera attachment controls are implemented.
+Remember That is in active milestone development. The responsive branded PWA shell, persistent user selection, offline task diary, offline inventory tracking, synchronisation foundation, offline global search, permanent deletion, offline attachment foundation, file/camera attachment controls, and user-controlled application update prompt are implemented locally.
 
-Approved internal attachment storage integration, PWA lifecycle improvements, internal environment integration, and deployment remain future milestones. Conflict detection and side-by-side review remain in place, but a separate conflict-resolution milestone is not required.
+Approved internal attachment storage integration, internal environment verification, supported-device acceptance testing, and deployment remain future milestones. Conflict detection and side-by-side review remain in place, but a separate conflict-resolution milestone is not required.
 
 This README should be updated whenever an approved project decision changes the expected behaviour or architecture of the application.

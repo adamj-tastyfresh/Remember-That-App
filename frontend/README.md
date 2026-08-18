@@ -7,6 +7,7 @@ React and TypeScript Progressive Web App for the Tasty Fresh IT task diary and i
 The frontend now includes:
 
 - A responsive desktop sidebar and mobile bottom navigation shell
+- Tasty Fresh red/cream visual identity with locally bundled Barlow typography
 - Device-persistent selection for Doug, Daniel, Mary, Adam, or Jabbar
 - Stable internal user IDs kept separate from display names
 - Offline task and inventory records backed by IndexedDB
@@ -27,6 +28,7 @@ The frontend now includes:
 - Automatic sync on app open, reconnect, foreground return, and local changes
 - Manual retry, last-successful-sync time, and retained conflict copies
 - A warning before switching users when the current user has pending changes
+- A user-controlled PWA update prompt that does not silently interrupt queued work
 
 The user selection identifies record ownership only. It is not secure authentication.
 
@@ -62,8 +64,9 @@ npm run lint
 npm run build
 ```
 
-The production build includes the configured PWA service worker and web app
-manifest.
+The production build includes the configured PWA service worker and web app manifest. New versions use a user-controlled prompt rather than forcing an automatic refresh.
+
+See `../Architecture.md` for the startup, state, API, and PWA decisions and `../Operations.md` for release readiness and troubleshooting.
 
 
 ## Attachment controls and storage boundary
