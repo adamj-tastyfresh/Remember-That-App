@@ -477,7 +477,7 @@ The application will be hosted internally on existing Tasty Fresh infrastructure
 The production URL is:
 
 ```text
-https://rememberthat.tastyfresh.com.au
+https://rememberthat.tastytrucks.com.au
 ```
 
 The application must not depend on Microsoft Azure.
