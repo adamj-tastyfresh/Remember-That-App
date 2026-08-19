@@ -45,14 +45,17 @@ A successful build is local verification, not proof of internal integration or p
 
 ## Database preparation
 
-Back up the target database and review each migration before execution. Run migrations in order:
+Back up the target database and review each script before execution. Copy `backend/sql/security/000_create_app_login.sql` outside the repository, populate its placeholders, and run it as a SQL Server administrator. Do not save the populated copy in the repository.
+
+Then run migrations in order while connected to the target database:
 
 1. `backend/sql/migrations/001_create_users_tasks.sql`
 2. `backend/sql/migrations/002_create_inventory.sql`
 3. `backend/sql/migrations/003_create_deletion_log.sql`
 4. `backend/sql/migrations/004_create_attachments.sql`
+5. `backend/sql/migrations/005_grant_app_permissions.sql`
 
-Each migration contains its own recovery guidance. Do not run production migrations until the database, backup owner, maintenance window, and rollback authority are confirmed.
+Migration 005 grants the `remme_app` database user access only to the eight `dbo.remme_*` tables. Each migration contains its own recovery guidance. Do not run production migrations until the database, backup owner, maintenance window, and rollback authority are confirmed.
 
 ## Production build commands
 

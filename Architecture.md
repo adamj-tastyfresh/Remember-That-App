@@ -16,6 +16,8 @@ Remember That is an internal, offline-first operational memory application for T
 
 The app is not an Expo or React Native application. It does not use the company-wide regional stored-procedure gateway unless a later approved integration decision changes this architecture.
 
+All Remember That SQL tables, constraints, and indexes use the `remme_` prefix under the `dbo` schema. This namespace separates application-owned objects from other tables in a shared SQL Server database.
+
 ## Major views
 
 - User selection

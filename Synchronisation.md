@@ -27,10 +27,12 @@
 
 ## Development setup
 
-Run `backend/sql/migrations/001_create_users_tasks.sql` followed by
+Run the administrator bootstrap `backend/sql/security/000_create_app_login.sql`, then run
+`backend/sql/migrations/001_create_users_tasks.sql` followed by
 `backend/sql/migrations/002_create_inventory.sql` followed by
 `backend/sql/migrations/003_create_deletion_log.sql` followed by
-`backend/sql/migrations/004_create_attachments.sql`, configure `backend/.env`, and
+`backend/sql/migrations/004_create_attachments.sql` followed by
+`backend/sql/migrations/005_grant_app_permissions.sql`. Configure `backend/.env`, and
 optionally create `frontend/.env` from `frontend/.env.example`.
 
 The SQL Server integration cannot be exercised until an approved internal SQL

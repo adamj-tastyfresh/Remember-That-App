@@ -45,8 +45,8 @@ const inventorySelect = [
   'SELECT i.InventoryId, i.ItemName, i.ItemLocation, i.CreatorId, u.DisplayName AS CreatorName,',
   'i.DeviceCreatedAt, i.ServerCreatedAt, i.LastModifiedAt, i.Archived,',
   'i.ArchivedAt, i.ArchivedBy, i.ServerVersion',
-  'FROM dbo.InventoryRecords i',
-  'INNER JOIN dbo.Users u ON u.UserId = i.CreatorId',
+  'FROM dbo.remme_InventoryRecords i',
+  'INNER JOIN dbo.remme_Users u ON u.UserId = i.CreatorId',
 ].join(' ');
 
 function bindInputs(request: sql.Request, input: InventorySyncRequest): void {
@@ -68,7 +68,7 @@ inventoryRouter.get('/', async (_req, res) => {
   try {
     const pool = await getPool();
     const result = await pool.request().query<InventoryRow>(inventorySelect + ' ORDER BY i.LastModifiedAt DESC');
-    const deletions = await pool.request().query<{ RecordId: string }>("SELECT RecordId FROM dbo.RecordDeletionLog WHERE RecordType = 'inventory'");
+    const deletions = await pool.request().query<{ RecordId: string }>("SELECT RecordId FROM dbo.remme_RecordDeletionLog WHERE RecordType = 'inventory'");
     res.json({ data: result.recordset.map(toApiInventory), meta: { deletedIds: deletions.recordset.map((row) => row.RecordId) } });
   } catch (error) {
     console.error('Inventory list failed:', error instanceof Error ? error.message : 'Unknown error');
@@ -98,7 +98,7 @@ inventoryRouter.post('/sync', async (req, res) => {
     bindInputs(request, input);
 
     const userResult = await request.query<{ UserId: string }>(
-      'SELECT UserId FROM dbo.Users WHERE UserId = @actingUserId AND IsActive = 1',
+      'SELECT UserId FROM dbo.remme_Users WHERE UserId = @actingUserId AND IsActive = 1',
     );
     if (userResult.recordset.length === 0) {
       await transaction.rollback();
@@ -107,7 +107,7 @@ inventoryRouter.post('/sync', async (req, res) => {
     }
 
     const duplicate = await request.query<{ OperationId: string; InventoryId: string }>(
-      'SELECT OperationId, InventoryId FROM dbo.InventorySyncOperations WHERE OperationId = @operationId',
+      'SELECT OperationId, InventoryId FROM dbo.remme_InventorySyncOperations WHERE OperationId = @operationId',
     );
     if (duplicate.recordset.length > 0) {
       if (duplicate.recordset[0].InventoryId.toLowerCase() !== input.inventory.id.toLowerCase()) {
@@ -126,7 +126,7 @@ inventoryRouter.post('/sync', async (req, res) => {
     }
 
     const tombstone = await request.query<{ RecordId: string }>(
-      "SELECT RecordId FROM dbo.RecordDeletionLog WHERE RecordType = 'inventory' AND RecordId = @inventoryId",
+      "SELECT RecordId FROM dbo.remme_RecordDeletionLog WHERE RecordType = 'inventory' AND RecordId = @inventoryId",
     );
     if (tombstone.recordset.length > 0) {
       await transaction.rollback();
@@ -134,7 +134,7 @@ inventoryRouter.post('/sync', async (req, res) => {
       return;
     }
     const existing = await request.query<{ CreatorId: string; ServerVersion: number }>(
-      'SELECT CreatorId, ServerVersion FROM dbo.InventoryRecords WITH (UPDLOCK, HOLDLOCK) WHERE InventoryId = @inventoryId',
+      'SELECT CreatorId, ServerVersion FROM dbo.remme_InventoryRecords WITH (UPDLOCK, HOLDLOCK) WHERE InventoryId = @inventoryId',
     );
     const current = existing.recordset[0];
 
@@ -151,7 +151,7 @@ inventoryRouter.post('/sync', async (req, res) => {
 
     if (!current) {
       await request.query([
-        'INSERT dbo.InventoryRecords (InventoryId, ItemName, ItemLocation, CreatorId, DeviceCreatedAt, LastModifiedAt, Archived, ArchivedAt, ArchivedBy)',
+        'INSERT dbo.remme_InventoryRecords (InventoryId, ItemName, ItemLocation, CreatorId, DeviceCreatedAt, LastModifiedAt, Archived, ArchivedAt, ArchivedBy)',
         'VALUES (@inventoryId, @itemName, @itemLocation, @creatorId, @deviceCreatedAt, SYSUTCDATETIME(), @archived, @archivedAt, @archivedBy)',
       ].join(' '));
     } else {
@@ -165,7 +165,7 @@ inventoryRouter.post('/sync', async (req, res) => {
         return;
       }
       await request.query([
-        'UPDATE dbo.InventoryRecords SET ItemName = @itemName, ItemLocation = @itemLocation,',
+        'UPDATE dbo.remme_InventoryRecords SET ItemName = @itemName, ItemLocation = @itemLocation,',
         'LastModifiedAt = SYSUTCDATETIME(), Archived = @archived, ArchivedAt = @archivedAt,',
         'ArchivedBy = @archivedBy, ServerVersion = ServerVersion + 1 WHERE InventoryId = @inventoryId',
       ].join(' '));
@@ -175,7 +175,7 @@ inventoryRouter.post('/sync', async (req, res) => {
     const savedRecord = saved.recordset[0];
     request.input('resultServerVersion', sql.Int, savedRecord.ServerVersion);
     await request.query([
-      'INSERT dbo.InventorySyncOperations (OperationId, InventoryId, ResultServerVersion)',
+      'INSERT dbo.remme_InventorySyncOperations (OperationId, InventoryId, ResultServerVersion)',
       'VALUES (@operationId, @inventoryId, @resultServerVersion)',
     ].join(' '));
     await transaction.commit();
@@ -210,14 +210,14 @@ inventoryRouter.post('/delete', async (req, res) => {
     request.input('actingUserId', sql.NVarChar(64), input.actingUserId);
     request.input('creatorId', sql.NVarChar(64), input.creatorId);
 
-    const user = await request.query<{ UserId: string }>('SELECT UserId FROM dbo.Users WHERE UserId = @actingUserId AND IsActive = 1');
+    const user = await request.query<{ UserId: string }>('SELECT UserId FROM dbo.remme_Users WHERE UserId = @actingUserId AND IsActive = 1');
     if (!user.recordset[0]) {
       await transaction.rollback();
       res.status(403).json({ error: { code: 'UNKNOWN_USER', message: 'The selected user is not active.' } });
       return;
     }
 
-    const operation = await request.query<{ RecordType: string; RecordId: string }>('SELECT RecordType, RecordId FROM dbo.RecordDeletionLog WHERE OperationId = @operationId');
+    const operation = await request.query<{ RecordType: string; RecordId: string }>('SELECT RecordType, RecordId FROM dbo.remme_RecordDeletionLog WHERE OperationId = @operationId');
     if (operation.recordset[0]) {
       const matches = operation.recordset[0].RecordType === 'inventory' && operation.recordset[0].RecordId.toLowerCase() === input.recordId.toLowerCase();
       await transaction.commit();
@@ -229,7 +229,7 @@ inventoryRouter.post('/delete', async (req, res) => {
       return;
     }
 
-    const priorDeletion = await request.query<{ CreatorId: string }>("SELECT CreatorId FROM dbo.RecordDeletionLog WHERE RecordType = 'inventory' AND RecordId = @recordId");
+    const priorDeletion = await request.query<{ CreatorId: string }>("SELECT CreatorId FROM dbo.remme_RecordDeletionLog WHERE RecordType = 'inventory' AND RecordId = @recordId");
     if (priorDeletion.recordset[0]) {
       const allowed = priorDeletion.recordset[0].CreatorId === input.actingUserId && input.creatorId === input.actingUserId;
       await transaction.commit();
@@ -241,7 +241,7 @@ inventoryRouter.post('/delete', async (req, res) => {
       return;
     }
 
-    const existing = await request.query<{ CreatorId: string; Archived: boolean; ServerVersion: number }>('SELECT CreatorId, Archived, ServerVersion FROM dbo.InventoryRecords WITH (UPDLOCK, HOLDLOCK) WHERE InventoryId = @recordId');
+    const existing = await request.query<{ CreatorId: string; Archived: boolean; ServerVersion: number }>('SELECT CreatorId, Archived, ServerVersion FROM dbo.remme_InventoryRecords WITH (UPDLOCK, HOLDLOCK) WHERE InventoryId = @recordId');
     const current = existing.recordset[0] ? { creatorId: existing.recordset[0].CreatorId, archived: existing.recordset[0].Archived, serverVersion: existing.recordset[0].ServerVersion } : null;
     try {
       assertPermanentDeletionAllowed(input, current);
@@ -257,12 +257,12 @@ inventoryRouter.post('/delete', async (req, res) => {
       return;
     }
 
-    await request.query("INSERT dbo.RecordDeletionLog (OperationId, RecordType, RecordId, CreatorId, DeletedBy) VALUES (@operationId, 'inventory', @recordId, @creatorId, @actingUserId)");
+    await request.query("INSERT dbo.remme_RecordDeletionLog (OperationId, RecordType, RecordId, CreatorId, DeletedBy) VALUES (@operationId, 'inventory', @recordId, @creatorId, @actingUserId)");
     if (current) {
-      await request.query("DELETE operations FROM dbo.AttachmentSyncOperations operations INNER JOIN dbo.Attachments attachments ON attachments.AttachmentId = operations.AttachmentId WHERE attachments.ParentRecordType = 'inventory' AND attachments.ParentRecordId = @recordId");
-      await request.query("DELETE dbo.Attachments WHERE ParentRecordType = 'inventory' AND ParentRecordId = @recordId");
-      await request.query('DELETE dbo.InventorySyncOperations WHERE InventoryId = @recordId');
-      await request.query('DELETE dbo.InventoryRecords WHERE InventoryId = @recordId');
+      await request.query("DELETE operations FROM dbo.remme_AttachmentSyncOperations operations INNER JOIN dbo.remme_Attachments attachments ON attachments.AttachmentId = operations.AttachmentId WHERE attachments.ParentRecordType = 'inventory' AND attachments.ParentRecordId = @recordId");
+      await request.query("DELETE dbo.remme_Attachments WHERE ParentRecordType = 'inventory' AND ParentRecordId = @recordId");
+      await request.query('DELETE dbo.remme_InventorySyncOperations WHERE InventoryId = @recordId');
+      await request.query('DELETE dbo.remme_InventoryRecords WHERE InventoryId = @recordId');
     }
     await transaction.commit();
     res.json({ data: { id: input.recordId }, meta: { duplicate: false } });

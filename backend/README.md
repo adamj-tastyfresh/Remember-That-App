@@ -10,12 +10,15 @@ Copy `.env.example` to `.env` and supply values for the approved internal enviro
 
 ## Database setup
 
-Back up the target database, review the scripts, then run these migrations in order:
+Back up the target database and review the scripts. First copy `sql/security/000_create_app_login.sql` outside the repository, replace its database and password placeholders, and run it as a SQL Server administrator. Never save or commit the populated copy.
+
+Then run these migrations in order while connected to the target database:
 
 1. `sql/migrations/001_create_users_tasks.sql`
 2. `sql/migrations/002_create_inventory.sql`
 3. `sql/migrations/003_create_deletion_log.sql`
 4. `sql/migrations/004_create_attachments.sql`
+5. `sql/migrations/005_grant_app_permissions.sql`
 
 The migrations create:
 
@@ -25,8 +28,11 @@ The migrations create:
 - Permanent-deletion tombstones and a minimal deletion audit log
 - Attachment metadata and idempotent attachment-operation receipts
 - Indexes for update and active/archive queries
+- A least-privilege `remme_app_role` with access only to the application tables
 
-Each script includes recovery notes. Database credentials remain server-side.
+Every application-owned SQL table and supporting database object uses the `remme_` namespace (for example, `dbo.remme_Tasks` and `PK_remme_Tasks`) to avoid collisions in a shared database. The public `/api/v1` routes are unchanged.
+
+Each script includes recovery notes. Configure the backend with the `remme_app` login after migration 005 succeeds. Database credentials remain server-side.
 
 ## API
 

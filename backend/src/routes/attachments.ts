@@ -52,8 +52,8 @@ attachmentsRouter.get('/', async (req, res) => {
     const result = await request.query<AttachmentRow>([
       'SELECT a.AttachmentId, a.ParentRecordId, a.ParentRecordType, a.OriginalFilename, a.StoredFilename,',
       'a.FileType, a.FileSize, a.UploadedById, u.DisplayName AS UploadedByName,',
-      'a.DeviceCreatedAt, a.ServerCreatedAt FROM dbo.Attachments a',
-      'INNER JOIN dbo.Users u ON u.UserId = a.UploadedById' + where + ' ORDER BY a.ServerCreatedAt DESC',
+      'a.DeviceCreatedAt, a.ServerCreatedAt FROM dbo.remme_Attachments a',
+      'INNER JOIN dbo.remme_Users u ON u.UserId = a.UploadedById' + where + ' ORDER BY a.ServerCreatedAt DESC',
     ].join(' '));
     res.json({ data: result.recordset.map(toApiAttachment) });
   } catch (error) {

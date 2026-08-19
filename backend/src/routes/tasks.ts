@@ -40,8 +40,8 @@ const taskSelect = [
   'SELECT t.TaskId, t.Title, t.Description, t.CreatorId, u.DisplayName AS CreatorName,',
   't.DeviceCreatedAt, t.ServerCreatedAt, t.LastModifiedAt, t.Archived,',
   't.ArchivedAt, t.ArchivedBy, t.ServerVersion',
-  'FROM dbo.Tasks t',
-  'INNER JOIN dbo.Users u ON u.UserId = t.CreatorId',
+  'FROM dbo.remme_Tasks t',
+  'INNER JOIN dbo.remme_Users u ON u.UserId = t.CreatorId',
 ].join(' ');
 
 function bindSyncInputs(request: sql.Request, input: TaskSyncRequest): void {
@@ -93,7 +93,7 @@ tasksRouter.post('/sync', async (req, res) => {
     bindSyncInputs(request, input);
 
     const userResult = await request.query<{ UserId: string }>(
-      'SELECT UserId FROM dbo.Users WHERE UserId = @actingUserId AND IsActive = 1',
+      'SELECT UserId FROM dbo.remme_Users WHERE UserId = @actingUserId AND IsActive = 1',
     );
     if (userResult.recordset.length === 0) {
       await transaction.rollback();
@@ -102,7 +102,7 @@ tasksRouter.post('/sync', async (req, res) => {
     }
 
     const duplicate = await request.query<{ OperationId: string; TaskId: string }>(
-      'SELECT OperationId, TaskId FROM dbo.TaskSyncOperations WHERE OperationId = @operationId',
+      'SELECT OperationId, TaskId FROM dbo.remme_TaskSyncOperations WHERE OperationId = @operationId',
     );
     if (duplicate.recordset.length > 0) {
       if (duplicate.recordset[0].TaskId.toLowerCase() !== input.task.id.toLowerCase()) {
@@ -121,7 +121,7 @@ tasksRouter.post('/sync', async (req, res) => {
     }
 
     const tombstone = await request.query<{ RecordId: string }>(
-      "SELECT RecordId FROM dbo.RecordDeletionLog WHERE RecordType = 'task' AND RecordId = @taskId",
+      "SELECT RecordId FROM dbo.remme_RecordDeletionLog WHERE RecordType = 'task' AND RecordId = @taskId",
     );
     if (tombstone.recordset.length > 0) {
       await transaction.rollback();
@@ -129,7 +129,7 @@ tasksRouter.post('/sync', async (req, res) => {
       return;
     }
     const existing = await request.query<{ CreatorId: string; ServerVersion: number }>(
-      'SELECT CreatorId, ServerVersion FROM dbo.Tasks WITH (UPDLOCK, HOLDLOCK) WHERE TaskId = @taskId',
+      'SELECT CreatorId, ServerVersion FROM dbo.remme_Tasks WITH (UPDLOCK, HOLDLOCK) WHERE TaskId = @taskId',
     );
     const current = existing.recordset[0];
 
@@ -143,7 +143,7 @@ tasksRouter.post('/sync', async (req, res) => {
       }
 
       await request.query([
-        'INSERT dbo.Tasks (TaskId, Title, Description, CreatorId, DeviceCreatedAt, LastModifiedAt, Archived, ArchivedAt, ArchivedBy)',
+        'INSERT dbo.remme_Tasks (TaskId, Title, Description, CreatorId, DeviceCreatedAt, LastModifiedAt, Archived, ArchivedAt, ArchivedBy)',
         'VALUES (@taskId, @title, @description, @creatorId, @deviceCreatedAt, SYSUTCDATETIME(), @archived, @archivedAt, @archivedBy)',
       ].join(' '));
     } else {
@@ -166,7 +166,7 @@ tasksRouter.post('/sync', async (req, res) => {
       }
 
       await request.query([
-        'UPDATE dbo.Tasks SET Title = @title, Description = @description,',
+        'UPDATE dbo.remme_Tasks SET Title = @title, Description = @description,',
         'LastModifiedAt = SYSUTCDATETIME(), Archived = @archived, ArchivedAt = @archivedAt,',
         'ArchivedBy = @archivedBy, ServerVersion = ServerVersion + 1 WHERE TaskId = @taskId',
       ].join(' '));
@@ -176,7 +176,7 @@ tasksRouter.post('/sync', async (req, res) => {
     const savedTask = saved.recordset[0];
     request.input('resultServerVersion', sql.Int, savedTask.ServerVersion);
     await request.query([
-      'INSERT dbo.TaskSyncOperations (OperationId, TaskId, ResultServerVersion)',
+      'INSERT dbo.remme_TaskSyncOperations (OperationId, TaskId, ResultServerVersion)',
       'VALUES (@operationId, @taskId, @resultServerVersion)',
     ].join(' '));
     await transaction.commit();
@@ -211,14 +211,14 @@ tasksRouter.post('/delete', async (req, res) => {
     request.input('actingUserId', sql.NVarChar(64), input.actingUserId);
     request.input('creatorId', sql.NVarChar(64), input.creatorId);
 
-    const user = await request.query<{ UserId: string }>('SELECT UserId FROM dbo.Users WHERE UserId = @actingUserId AND IsActive = 1');
+    const user = await request.query<{ UserId: string }>('SELECT UserId FROM dbo.remme_Users WHERE UserId = @actingUserId AND IsActive = 1');
     if (!user.recordset[0]) {
       await transaction.rollback();
       res.status(403).json({ error: { code: 'UNKNOWN_USER', message: 'The selected user is not active.' } });
       return;
     }
 
-    const operation = await request.query<{ RecordType: string; RecordId: string }>('SELECT RecordType, RecordId FROM dbo.RecordDeletionLog WHERE OperationId = @operationId');
+    const operation = await request.query<{ RecordType: string; RecordId: string }>('SELECT RecordType, RecordId FROM dbo.remme_RecordDeletionLog WHERE OperationId = @operationId');
     if (operation.recordset[0]) {
       const matches = operation.recordset[0].RecordType === 'task' && operation.recordset[0].RecordId.toLowerCase() === input.recordId.toLowerCase();
       await transaction.commit();
@@ -230,7 +230,7 @@ tasksRouter.post('/delete', async (req, res) => {
       return;
     }
 
-    const priorDeletion = await request.query<{ CreatorId: string }>("SELECT CreatorId FROM dbo.RecordDeletionLog WHERE RecordType = 'task' AND RecordId = @recordId");
+    const priorDeletion = await request.query<{ CreatorId: string }>("SELECT CreatorId FROM dbo.remme_RecordDeletionLog WHERE RecordType = 'task' AND RecordId = @recordId");
     if (priorDeletion.recordset[0]) {
       const allowed = priorDeletion.recordset[0].CreatorId === input.actingUserId && input.creatorId === input.actingUserId;
       await transaction.commit();
@@ -242,7 +242,7 @@ tasksRouter.post('/delete', async (req, res) => {
       return;
     }
 
-    const existing = await request.query<{ CreatorId: string; Archived: boolean; ServerVersion: number }>('SELECT CreatorId, Archived, ServerVersion FROM dbo.Tasks WITH (UPDLOCK, HOLDLOCK) WHERE TaskId = @recordId');
+    const existing = await request.query<{ CreatorId: string; Archived: boolean; ServerVersion: number }>('SELECT CreatorId, Archived, ServerVersion FROM dbo.remme_Tasks WITH (UPDLOCK, HOLDLOCK) WHERE TaskId = @recordId');
     const current = existing.recordset[0] ? { creatorId: existing.recordset[0].CreatorId, archived: existing.recordset[0].Archived, serverVersion: existing.recordset[0].ServerVersion } : null;
     try {
       assertPermanentDeletionAllowed(input, current);
@@ -258,12 +258,12 @@ tasksRouter.post('/delete', async (req, res) => {
       return;
     }
 
-    await request.query("INSERT dbo.RecordDeletionLog (OperationId, RecordType, RecordId, CreatorId, DeletedBy) VALUES (@operationId, 'task', @recordId, @creatorId, @actingUserId)");
+    await request.query("INSERT dbo.remme_RecordDeletionLog (OperationId, RecordType, RecordId, CreatorId, DeletedBy) VALUES (@operationId, 'task', @recordId, @creatorId, @actingUserId)");
     if (current) {
-      await request.query("DELETE operations FROM dbo.AttachmentSyncOperations operations INNER JOIN dbo.Attachments attachments ON attachments.AttachmentId = operations.AttachmentId WHERE attachments.ParentRecordType = 'task' AND attachments.ParentRecordId = @recordId");
-      await request.query("DELETE dbo.Attachments WHERE ParentRecordType = 'task' AND ParentRecordId = @recordId");
-      await request.query('DELETE dbo.TaskSyncOperations WHERE TaskId = @recordId');
-      await request.query('DELETE dbo.Tasks WHERE TaskId = @recordId');
+      await request.query("DELETE operations FROM dbo.remme_AttachmentSyncOperations operations INNER JOIN dbo.remme_Attachments attachments ON attachments.AttachmentId = operations.AttachmentId WHERE attachments.ParentRecordType = 'task' AND attachments.ParentRecordId = @recordId");
+      await request.query("DELETE dbo.remme_Attachments WHERE ParentRecordType = 'task' AND ParentRecordId = @recordId");
+      await request.query('DELETE dbo.remme_TaskSyncOperations WHERE TaskId = @recordId');
+      await request.query('DELETE dbo.remme_Tasks WHERE TaskId = @recordId');
     }
     await transaction.commit();
     res.json({ data: { id: input.recordId }, meta: { duplicate: false } });
