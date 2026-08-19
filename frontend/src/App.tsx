@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { InventoryForm } from './components/InventoryForm.tsx'
 import { InventoryList } from './components/InventoryList.tsx'
 import { SearchView } from './components/SearchView.tsx'
@@ -55,6 +55,8 @@ function App() {
   const [loadingRecords, setLoadingRecords] = useState(true)
   const [savingTask, setSavingTask] = useState(false)
   const [savingInventory, setSavingInventory] = useState(false)
+  const taskSaveInProgress = useRef(false)
+  const inventorySaveInProgress = useRef(false)
   const [savingAttachmentParents, setSavingAttachmentParents] = useState<ReadonlySet<string>>(new Set())
   const [storageError, setStorageError] = useState('')
 
@@ -102,6 +104,8 @@ function App() {
   }
 
   const persistTask = async (task: TaskRecord): Promise<boolean> => {
+    if (taskSaveInProgress.current) return false
+    taskSaveInProgress.current = true
     setSavingTask(true)
     setStorageError('')
     try {
@@ -114,11 +118,14 @@ function App() {
       setStorageError(error instanceof Error ? error.message : 'Could not save this task on the device.')
       return false
     } finally {
+      taskSaveInProgress.current = false
       setSavingTask(false)
     }
   }
 
   const persistInventory = async (record: InventoryRecord): Promise<boolean> => {
+    if (inventorySaveInProgress.current) return false
+    inventorySaveInProgress.current = true
     setSavingInventory(true)
     setStorageError('')
     try {
@@ -131,6 +138,7 @@ function App() {
       setStorageError(error instanceof Error ? error.message : 'Could not save this inventory record on the device.')
       return false
     } finally {
+      inventorySaveInProgress.current = false
       setSavingInventory(false)
     }
   }
@@ -166,7 +174,7 @@ function App() {
   }
 
   const handleSaveTask = async (input: TaskInput): Promise<boolean> => {
-    if (!currentUser || savingTask) return false
+    if (!currentUser) return false
     try {
       const task = editingTask ? updateTask(editingTask, input, currentUser) : createTask(input, currentUser)
       const saved = await persistTask(task)
@@ -179,7 +187,7 @@ function App() {
   }
 
   const handleSaveInventory = async (input: InventoryInput): Promise<boolean> => {
-    if (!currentUser || savingInventory) return false
+    if (!currentUser) return false
     try {
       const record = editingInventory
         ? updateInventoryRecord(editingInventory, input, currentUser)

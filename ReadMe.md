@@ -453,6 +453,8 @@ All central database operations must pass through the internal backend API.
 
 Microsoft SQL Server is the central application database.
 
+Remember That uses an approved existing shared SQL Server database rather than requiring a dedicated database. Every application-owned table, constraint, index, user, and role must use the `remme_` namespace so it cannot collide with unrelated objects. The selected database name is environment-specific and must be supplied through backend configuration; migrations must never be run in a SQL Server system database.
+
 The database will store information including:
 
 - Users

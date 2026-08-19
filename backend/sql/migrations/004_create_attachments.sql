@@ -1,4 +1,8 @@
 SET XACT_ABORT ON;
+
+IF DB_NAME() IN (N'master', N'model', N'msdb', N'tempdb')
+  THROW 51000, 'Run this migration in the approved shared target database, not a system database.', 1;
+
 BEGIN TRANSACTION;
 
 IF OBJECT_ID('dbo.remme_Attachments', 'U') IS NULL

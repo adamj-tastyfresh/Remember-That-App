@@ -22,7 +22,7 @@ A lower-priority reference must not silently override a higher-priority project 
 | Expo Managed Workflow and React Native | React and TypeScript Progressive Web App |
 | Token-based login and session restoration | Device-persistent name selection for identification only; no secure authentication |
 | Unified stored-procedure gateway | Dedicated versioned Express API under `/api/v1` |
-| Regional operational databases | Dedicated `RememberThat` SQL Server database |
+| Regional operational databases | An approved existing shared SQL Server database, with every application-owned object isolated under the `dbo.remme_*` namespace |
 | Cloud or generic attachment storage | Approved Tasty Fresh internal file storage only; integration remains disabled until supplied |
 
 ## Adopted company standards
