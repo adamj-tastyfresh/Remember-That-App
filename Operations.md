@@ -81,7 +81,7 @@ The following information is still required before deployment:
 - Network/domain access restriction
 - SQL Server hostname, database, service identity, and certificate policy
 - Secret storage and rotation process
-- Approved internal attachment root
+- SeaweedFS S3 endpoint, bucket, region, and server-side access credentials
 - Attachment size and permitted/prohibited type policy
 - Attachment backup, retention, deletion, and recovery process
 - Application log destination and retention
@@ -146,7 +146,7 @@ Exact rollback commands cannot be documented until the production host and deplo
 
 ### Attachments never upload
 
-This is expected until approved internal attachment storage is configured. Selected files remain local and queued.
+This is expected until the SeaweedFS S3 credentials and approved attachment size/type policy are configured. Selected files remain local and queued.
 
 ### New app version is available
 

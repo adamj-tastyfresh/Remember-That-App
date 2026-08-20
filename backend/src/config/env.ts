@@ -20,4 +20,11 @@ export const env = {
     encrypt: (process.env.DB_ENCRYPT ?? 'true') === 'true',
     trustServerCertificate: (process.env.DB_TRUST_SERVER_CERTIFICATE ?? 'false') === 'true',
   },
+  s3: {
+    endpoint: process.env.S3_ENDPOINT?.trim() ?? '',
+    accessKey: process.env.S3_ACCESS_KEY?.trim() ?? '',
+    secretKey: process.env.S3_SECRET_KEY?.trim() ?? '',
+    bucket: process.env.S3_BUCKET?.trim() ?? '',
+    region: process.env.S3_REGION?.trim() ?? '',
+  },
 };

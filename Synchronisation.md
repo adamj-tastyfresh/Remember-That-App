@@ -13,7 +13,7 @@
 9. Permanent deletion replaces any queued update with a persistent delete operation, immediately hides the archived record, and retries until the server confirms deletion.
 10. The server retains a minimal deletion tombstone so stale queued edits are rejected and other devices remove cached copies.
 11. After pushes, the client fetches server records and deletion tombstones, then merges them without silently overwriting unsynchronised local data.
-12. File and camera selections are validated, then their attachment Blobs, metadata, and queue entries are stored atomically in IndexedDB. Upload processing remains disabled until approved internal file storage and its server-side size policy are configured.
+12. File and camera selections are validated, then their attachment Blobs, metadata, and queue entries are stored atomically in IndexedDB. The backend uploads objects to private internal SeaweedFS through its S3-compatible API. Upload processing remains disabled until the server-side size/type policy and S3 credentials are configured.
 
 ## API response states
 

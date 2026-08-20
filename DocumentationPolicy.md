@@ -23,7 +23,7 @@ A lower-priority reference must not silently override a higher-priority project 
 | Token-based login and session restoration | Device-persistent name selection for identification only; no secure authentication |
 | Unified stored-procedure gateway | Dedicated versioned Express API under `/api/v1` |
 | Regional operational databases | An approved existing shared SQL Server database, with every application-owned object isolated under the `dbo.remme_*` namespace |
-| Cloud or generic attachment storage | Approved Tasty Fresh internal file storage only; integration remains disabled until supplied |
+| External cloud attachment storage | Private Tasty Fresh SeaweedFS object storage through its S3-compatible API; credentials remain server-side |
 
 ## Adopted company standards
 

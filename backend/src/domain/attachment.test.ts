@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createSafeStoredFilename, validateAttachmentDescriptor } from './attachment.ts';
+import { createAttachmentObjectKey, createSafeStoredFilename, validateAttachmentDescriptor } from './attachment.ts';
 
 const policy = { maxFileSizeBytes: 1024, allowedMimeTypes: ['image/jpeg', 'application/pdf'] };
 const descriptor = {
@@ -27,4 +27,11 @@ test('rejects unsafe names, unapproved types, and oversized files', () => {
 test('generates a safe stored filename without trusting the original path', () => {
   assert.equal(createSafeStoredFilename(descriptor.id, descriptor.originalFilename), descriptor.id + '.jpg');
   assert.equal(createSafeStoredFilename(descriptor.id, 'document.bad-extension-too-long'), descriptor.id);
+});
+test('creates deterministic private object keys and rejects unsafe paths', () => {
+  assert.equal(
+    createAttachmentObjectKey('task', descriptor.parentRecordId, descriptor.id + '.jpg'),
+    `attachments/task/${descriptor.parentRecordId}/${descriptor.id}.jpg`,
+  );
+  assert.throws(() => createAttachmentObjectKey('inventory', descriptor.parentRecordId, '../secret.txt'), /invalid/);
 });

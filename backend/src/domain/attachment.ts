@@ -52,3 +52,15 @@ export function createSafeStoredFilename(attachmentId: string, originalFilename:
   const safeExtension = /^[a-z0-9]{1,10}$/.test(extension) ? '.' + extension : '';
   return attachmentId.toLowerCase() + safeExtension;
 }
+
+export function createAttachmentObjectKey(
+  parentRecordType: 'task' | 'inventory',
+  parentRecordId: string,
+  storedFilename: string,
+): string {
+  if (!UUID_PATTERN.test(parentRecordId)) throw new Error('The attachment parent ID is invalid.');
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:\.[a-z0-9]{1,10})?$/i.test(storedFilename)) {
+    throw new Error('The stored attachment filename is invalid.');
+  }
+  return `attachments/${parentRecordType}/${parentRecordId.toLowerCase()}/${storedFilename.toLowerCase()}`;
+}

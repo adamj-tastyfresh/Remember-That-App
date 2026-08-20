@@ -62,4 +62,4 @@ Run `npm test` and `npm run build`.
 
 ## Attachment storage boundary
 
-Migration 004 and the current API cover metadata only. The API deliberately does not expose internal storage references. Upload and download endpoints must not be enabled until the approved Tasty Fresh internal file-storage location, limits, and file-type policy are supplied.
+Migration 004 and the current routes cover metadata only. The backend now has an AWS SDK v3 client boundary for the private internal SeaweedFS S3-compatible endpoint. `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, and `S3_REGION` are server-only settings. Upload and download routes remain disabled until the maximum file size, permitted types, retention, and access rules are approved; storage references must never be exposed publicly.

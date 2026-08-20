@@ -377,9 +377,9 @@ Examples include:
 
 Users should also be able to capture photos directly from supported mobile devices.
 
-Attachment storage must follow the existing approved Tasty Fresh internal storage procedures.
+Attachment objects are stored privately in the approved Tasty Fresh SeaweedFS service through its S3-compatible API. SQL Server remains the source of truth for attachment metadata.
 
-The project must not introduce an external cloud storage service for attachments.
+This is internal company object storage, not an external AWS cloud service. S3 endpoint and credentials are backend-only environment settings and must never be exposed to the browser or committed to source control.
 
 Attachment metadata may include:
 
@@ -440,7 +440,7 @@ Internal Backend API
        |
        +-- Microsoft SQL Server
        |
-       +-- Approved Internal File Storage
+       +-- Internal SeaweedFS (S3-compatible API)
 ```
 
 The frontend must never connect directly to Microsoft SQL Server.
@@ -741,6 +741,6 @@ Company-wide infrastructure, regional database, and API references are contextua
 
 Remember That is in active milestone development. The responsive branded PWA shell, persistent user selection, offline task diary, offline inventory tracking, synchronisation foundation, offline global search, permanent deletion, offline attachment foundation, file/camera attachment controls, and user-controlled application update prompt are implemented locally.
 
-Approved internal attachment storage integration, internal environment verification, supported-device acceptance testing, and deployment remain future milestones. Conflict detection and side-by-side review remain in place, but a separate conflict-resolution milestone is not required.
+The private SeaweedFS S3 client boundary and environment contract are implemented locally. Attachment upload/download routes and integration verification remain pending until credentials, maximum file size, permitted types, retention, and access rules are approved. Internal environment verification, supported-device acceptance testing, and deployment also remain future milestones. Conflict detection and side-by-side review remain in place, but a separate conflict-resolution milestone is not required.
 
 This README should be updated whenever an approved project decision changes the expected behaviour or architecture of the application.

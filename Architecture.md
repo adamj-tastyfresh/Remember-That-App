@@ -11,7 +11,7 @@ Remember That is an internal, offline-first operational memory application for T
 - Local persistence: IndexedDB, with local storage used only for the selected user preference
 - Backend: dedicated Express and TypeScript API
 - Central database: Microsoft SQL Server
-- Attachments: IndexedDB while pending, then approved internal file storage when configured
+- Attachments: IndexedDB while pending, then private internal SeaweedFS object storage through its S3-compatible API
 - Hosting: approved internal Tasty Fresh infrastructure
 
 The app is not an Expo or React Native application. It does not use the company-wide regional stored-procedure gateway unless a later approved integration decision changes this architecture.
@@ -58,7 +58,7 @@ Client-generated UUIDs allow records and attachments to be created offline. Crea
 
 The frontend uses the versioned same-origin path `/api/v1` in production. Development may override the base URL with `VITE_API_BASE_URL`.
 
-The dedicated API provides health, task, inventory, deletion, and attachment-metadata routes. It validates data and ownership independently of the frontend and uses parameterised SQL queries.
+The dedicated API provides health, task, inventory, deletion, and attachment routes. It validates data and ownership independently of the frontend, uses parameterised SQL queries for metadata, and owns all S3-compatible SeaweedFS operations so credentials never reach the browser.
 
 User selection is not authentication. Production access must therefore be restricted by approved network, domain, and hosting controls.
 
@@ -80,8 +80,8 @@ The current “R” mark is an application identifier, not the official Tasty Fr
 
 ## Current limitations
 
-- Internal SQL Server connectivity has not been integration tested.
-- Attachment upload and download are disabled until storage location, size limits, permitted types, retention, and access rules are approved.
+- SQL Server task and inventory synchronisation has been integration verified against the configured internal database.
+- The SeaweedFS S3 client boundary and environment contract are implemented locally. Upload and download remain disabled until size limits, permitted types, retention, and access rules are approved and credentials are configured.
 - Name selection does not provide secure authentication.
 - Production network restriction and HTTPS termination are not yet configured in this repository.
 - Supported-device PWA installation, offline launch, camera capture, and update behavior still require physical desktop/iPhone acceptance testing.
